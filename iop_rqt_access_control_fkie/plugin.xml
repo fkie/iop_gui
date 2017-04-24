@@ -1,0 +1,18 @@
+<library path="src">
+  <class name="IOPAccessControl" type="iop_rqt_access_control_fkie.iop_rqt_access_control.AccessControlClient" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      A Python GUI plugin to get access control for an IOP compliant robot.
+    </description>
+    <qtgui>
+      <label>Access Control</label>
+      <icon type="theme">applications-other</icon>
+      <statustip>A Python GUI plugin to get access control for an IOP compliant robot.</statustip>
+      <group>
+        <label>FKIE</label>
+        <group>
+          <label>IOP</label>
+        </group>
+      </group>
+    </qtgui>
+  </class>
+</library> 

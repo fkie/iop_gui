@@ -1,0 +1,5 @@
+<launch>
+  <node respawn="false" pkg="iop_rqt_velocity_fkie" type="iop_rqt_velocity" name="iop_rqt_velocity" >
+    <param name="capability_group" value="iop_bridge"/>
+  </node>
+</launch> 

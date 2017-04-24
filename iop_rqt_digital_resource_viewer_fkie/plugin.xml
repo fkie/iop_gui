@@ -1,0 +1,18 @@
+<library path="src">
+  <class name="DigitalResourceViewer" type="iop_rqt_digital_resource_viewer_fkie.iop_rqt_digital_resource_viewer.DigitalResourceViewer" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      A Python GUI plugin to view the available digital resources.
+    </description>
+    <qtgui>
+      <label>Digital Resource Viewer</label>
+      <icon type="theme">applications-other</icon>
+      <statustip>A Python GUI plugin to view the available digital resources.</statustip>
+      <group>
+        <label>FKIE</label>
+        <group>
+          <label>IOP</label>
+        </group>
+      </group>
+    </qtgui>
+  </class>
+</library> 
