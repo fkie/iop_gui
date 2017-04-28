@@ -102,7 +102,7 @@ class AccessControlClient(Plugin):
         self._ocu_control = OcuControlMaster()
         self._ocu_control.set_feedback_handler(self._ocu_control_handler)
         self._ocu_control.set_access_control(OcuControlMaster.ACCESS_CONTROL_RELEASE)
-        rospy.on_shutdown(self.on_ros_shutdown)  # handle the ROS shutdown commands
+        # rospy.on_shutdown(self.on_ros_shutdown)  # handle the ROS shutdown commands
 
     def nothing(self, var=None):
         pass
