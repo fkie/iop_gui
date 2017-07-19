@@ -14,11 +14,11 @@
   <build_depend>python_qt_binding</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>iop_msgs_fkie</build_depend>
-  <build_depend>iop_ocu_controllib_fkie</build_depend>
+  <build_depend>iop_ocu_slavelib_fkie</build_depend>
 
   <run_depend>python_qt_binding</run_depend>
   <run_depend>iop_msgs_fkie</run_depend>
-  <run_depend>iop_ocu_controllib_fkie</run_depend>
+  <run_depend>iop_ocu_slavelib_fkie</run_depend>
   <run_depend>std_msgs</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>rqt_gui</run_depend>

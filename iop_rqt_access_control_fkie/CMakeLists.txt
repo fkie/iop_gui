@@ -4,12 +4,12 @@ project(iop_rqt_access_control_fkie)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS iop_msgs_fkie iop_ocu_controllib_fkie python_qt_binding std_msgs)
+find_package(catkin REQUIRED COMPONENTS iop_msgs_fkie python_qt_binding std_msgs)
 
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES iop_rqt_discovery_fkie
-  CATKIN_DEPENDS iop_msgs_fkie iop_ocu_controllib_fkie python_qt_binding std_msgs
+  CATKIN_DEPENDS iop_msgs_fkie python_qt_binding std_msgs
 #  DEPENDS system_lib
 )
 
