@@ -83,8 +83,20 @@ class Robot(QObject):
         self._ocu_client = ocu_client
         if self._ocu_client is not None:
             self._ocu_client.control_subsystem = self.subsystem_id
+            if ocu_client.subsystem_restricted == self.subsystem_id:
+                self._widget.button_control.setEnabled(not ocu_client.only_monitor)
         elif self.has_view() or self.has_control():
             self.set_warnings(["No free OCU client available!", "Start an ocu_client with different nodeID to be able to listen for sensors on second robot."])
+
+    @property
+    def ocu_client_restricted(self):
+        if self._ocu_client is not None:
+            if self._ocu_client.subsystem_restricted == self.subsystem_id:
+                return self._ocu_client
+        return None
+
+    def set_control_active(self, state):
+        self._widget.button_control.setEnabled(state)
 
     def _on_robot_control(self, checked=False):
         '''
@@ -96,9 +108,10 @@ class Robot(QObject):
             self._widget.button_view.setChecked(checked)
             self.control_activated.emit(addr)
         else:
+            self.release_control()
             self.control_deactivated.emit(addr)
-            if self.has_view():
-                self.view_activated.emit(addr)
+#            if self.has_view():
+#                self.view_activated.emit(addr)
 
     def _on_robot_view(self, checked=False):
         '''
@@ -170,7 +183,13 @@ class Robot(QObject):
         treeWidget_components.clear()
         treeWidget_components.setGeometry(QRect(10, 50, 275, 180))
         if self._ocu_client is not None:
-            vlayout.addWidget(QLabel("OCU client: %s" % self.ocu_client.address))
+            add_info = ''
+            if self.ocu_client.subsystem_restricted == self.subsystem_id:
+                if self.ocu_client.only_monitor:
+                    add_info = ' [restricted, only monitor]'
+                else:
+                    add_info = ' [restricted]'
+            vlayout.addWidget(QLabel("OCU client: %s%s" % (self.ocu_client.address, add_info)))
         if self.name == self._subsystem.ident.name:
             treeWidget_components.clear()
             for node in self._subsystem.nodes:
@@ -236,11 +255,11 @@ class Robot(QObject):
         if has_warning and self.has_control():
             self._widget.button_control.setStyleSheet("QPushButton { background-color: #FE9A2E;}")
         elif self.has_control():
-            self._widget.button_control.setStyleSheet("QPushButton { background-color: #3ADF00;}")
-            self._widget.button_view.setStyleSheet("QPushButton { background-color: None;}")
+            self._widget.button_control.setStyleSheet("QPushButton { background-color: #98FB98;}")
+            self._widget.button_view.setStyleSheet("QPushButton { background-color: #98FB98;}")
         elif self.has_view():
-            self._widget.button_view.setStyleSheet("QPushButton { background-color: #3ADF00;}")
             self._widget.button_control.setStyleSheet("QPushButton { background-color: None;}")
+            self._widget.button_view.setStyleSheet("QPushButton { background-color: #98FB98;}")
         else:
             self._widget.button_control.setStyleSheet("QPushButton { background-color: None;}")
             self._widget.button_view.setStyleSheet("QPushButton { background-color: None;}")

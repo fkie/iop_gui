@@ -83,6 +83,7 @@ class AccessControlClient(Plugin):
         self._widget.setObjectName('AccessControlClientUi')
         self._widget.setWindowTitle("AccessControlClient")
         self._widget.warn_client_button.setVisible(False)
+        self._widget.info_frame.setVisible(False)
         # Show _widget.windowTitle on left-top of each plugin (when
         # it's set in _widget). This is useful when you open multiple
         # plugins at once. Also if you open multiple instances of your
@@ -96,8 +97,8 @@ class AccessControlClient(Plugin):
         self._topic_discovery = '/iop_system'
         self._service_update_discovery = '/iop_update_discovery'
         self._topic_identification = '/iop_identification'
-        self._topic_cmd = 'ocu_cmd'
-        self._topic_feedback = 'ocu_feedback'
+        self._topic_cmd = '/ocu_cmd'
+        self._topic_feedback = '/ocu_feedback'
         self._subscriber_discovery = None
         self._authority = 205
         self._access_control = self.ACCESS_CONTROL_RELEASE
@@ -107,6 +108,7 @@ class AccessControlClient(Plugin):
         self.signal_ident.connect(self.signal_callback_ident)
         self._sub_feedback = rospy.Subscriber(self._topic_feedback, OcuFeedback, self._ocu_feedback_handler, queue_size=10)
         self._sub_ident = rospy.Subscriber(self._topic_identification, Identification, self._ocu_ident_handler, queue_size=10)
+        rospy.on_shutdown(self.on_ros_shutdown)
 
     def signal_callback_subsystem(self, msg):
         if not msg.subsystems:
@@ -124,6 +126,11 @@ class AccessControlClient(Plugin):
                 robot.view_activated.connect(self.on_robot_view_activated)
                 robot.view_deactivated.connect(self.on_robot_view_deactivated)
                 self._robotlist.append(robot)
+                # set an already discovered client if it is restricted to this robot
+                for client in self._clients:
+                    if robot.subsystem_id == client.subsystem_restricted:
+                        if robot.ocu_client is None:
+                            robot.ocu_client = client
                 # add robot in sort order
                 added = False
                 for index in range(0, self._widget.layout_robots.count()):
@@ -155,6 +162,10 @@ class AccessControlClient(Plugin):
             for client in self._clients:
                 cw = client.get_warnings(robot.subsystem_id)
                 warnings.update(cw)
+                # set client if it is restricted to this robot
+                if robot.subsystem_id == client.subsystem_restricted:
+                    if robot.ocu_client is None:
+                        robot.ocu_client = client
             robot.set_feedback_warnings(warnings)
 
     def signal_callback_ident(self, ident):
@@ -177,7 +188,8 @@ class AccessControlClient(Plugin):
                     robot.release_control()
                     cmd_release = OcuCmd()
                     cmd_entry1 = robot.state_to_cmd()
-                    robot.ocu_client = None
+                    if not robot.ocu_client.is_restricted():
+                        robot.ocu_client = None
                     cmd_release.cmds.append(cmd_entry1)
                     self._send_cmd(cmd_release)
                     deactivated_robot_id.append(robot.subsystem_id)
@@ -186,16 +198,18 @@ class AccessControlClient(Plugin):
                     cmd_release = OcuCmd()
                     cmd_entry1 = robot.state_to_cmd()
                     cmd_entry1.access_control = self.ACCESS_CONTROL_RELEASE
-                    robot.ocu_client = None
+                    if not robot.ocu_client.is_restricted():
+                        robot.ocu_client = None
                     cmd_release.cmds.append(cmd_entry1)
                     self._send_cmd(cmd_release)
         # set the ocu client for the new robot
         for robot in self._robotlist:
             if robot.subsystem_id == addr.subsystem_id:
                 robot.ocu_client = control_ocu
-                ocu_str_addr = 'none'
+                ocu_str_addr = '---'
                 if robot.ocu_client is not None:
-                    ocu_str_addr = str(robot.ocu_client.address)
+                    if not robot.ocu_client.is_restricted():
+                        ocu_str_addr = str(robot.ocu_client.address)
                 self._widget.label_address.setText(ocu_str_addr)
         # create command for new robot and try to find the view ocu client for deactivated control
         cmd = OcuCmd()
@@ -219,7 +233,7 @@ class AccessControlClient(Plugin):
             if robot.subsystem_id == addr.subsystem_id:
                 robot.ocu_client = None
                 cmd_entry.access_control = self.ACCESS_CONTROL_RELEASE
-                self._widget.label_address.setText("none")
+                self._widget.label_address.setText("---")
             cmd.cmds.append(cmd_entry)
         self._send_cmd(cmd)
 
@@ -256,6 +270,12 @@ class AccessControlClient(Plugin):
         Determine for a subsystem a free ocu client to request control.
         :type subsystem: int
         '''
+        # do we have already a client assigned
+        for robot in self._robotlist:
+            if robot.subsystem_id == subsystem:
+                result = robot.ocu_client_restricted
+                if result is not None:
+                    return result
         # look for control client with restricted to the given subsystem
         for client in self._clients:
             ssms = client.subsystem_restricted
@@ -290,8 +310,12 @@ class AccessControlClient(Plugin):
         return None
 
     def on_ros_shutdown(self, *args):
-        from python_qt_binding.QtGui import QApplication
-        QApplication.exit(0)
+        try:
+            from python_qt_binding.QtGui import QApplication
+            QApplication.exit(0)
+        except Exception:
+            from python_qt_binding.QtWidgets import QApplication
+            QApplication.exit(0)
 
     def _ocu_feedback_handler(self, control_feedback):
         self.signal_feedback.emit(control_feedback)
@@ -326,8 +350,8 @@ class AccessControlClient(Plugin):
         self._topic_discovery = instance_settings.value('iop_system', '/iop_system')
         self._service_update_discovery = instance_settings.value('iop_update_discovery', '/iop_update_discovery')
         self._topic_identification = instance_settings.value('iop_identification', '/iop_identification')
-        self._topic_cmd = instance_settings.value('ocu_cmd', 'ocu_cmd')
-        self._topic_feedback = instance_settings.value('ocu_feedback', 'ocu_feedback')
+        self._topic_cmd = instance_settings.value('ocu_cmd', '/ocu_cmd')
+        self._topic_feedback = instance_settings.value('ocu_feedback', '/ocu_feedback')
 
         self.reinitRosComm()
 
@@ -407,5 +431,5 @@ class AccessControlClient(Plugin):
         Publishes the command message to the topic.
         :type cmd: OcuCmd
         '''
-        # time.sleep(0.1)
+        time.sleep(0.1)
         self._pub_cmd.publish(cmd)

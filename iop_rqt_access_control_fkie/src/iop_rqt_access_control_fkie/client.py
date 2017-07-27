@@ -72,6 +72,9 @@ class Client(object):
     def has_control_access(self):
         return self._has_control_access
 
+    def is_restricted(self):
+        return self.subsystem_restricted not in [0, 65535]
+
     def apply(self, feedback):
         '''
         :type jaus_address: iop_msgs_fkie/OcuFeedback

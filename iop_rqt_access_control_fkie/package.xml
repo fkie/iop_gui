@@ -2,7 +2,7 @@
 <package>
   <name>iop_rqt_access_control_fkie</name>
   <version>0.0.0</version>
-  <description>A Python GUI plugin to get access control for an IOP compliant robot.</description>
+  <description>GUI plugin to get access control for an IOP compliant robot.</description>
 
   <maintainer email="alexander.tiderko@fkie.fraunhofer.de">Alexander Tiderko</maintainer>
 
