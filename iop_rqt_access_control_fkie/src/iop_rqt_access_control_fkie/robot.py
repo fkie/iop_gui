@@ -231,6 +231,7 @@ class Robot(QObject):
                     text_browser.append("Client %s:" % client)
                     for service_info in service_infos:
                         text_browser.append("    %s[%s]: %s" % (service_info.uri, Address(service_info.addr_control), self.access_state_to_str(service_info.access_state)))
+        diag.resize(600, 250)
         diag.setWindowTitle("Warning for %s" % self.name)
         diag.setLayout(vlayout)
         diag.setWindowIcon(QIcon.fromTheme("dialog-warning"))

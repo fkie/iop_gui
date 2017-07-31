@@ -8,10 +8,7 @@
       <icon type="theme">applications-other</icon>
       <statustip>A Python GUI plugin to get access control for an IOP compliant robot.</statustip>
       <group>
-        <label>FKIE</label>
-        <group>
-          <label>IOP</label>
-        </group>
+        <label>FKIE IOP</label>
       </group>
     </qtgui>
   </class>

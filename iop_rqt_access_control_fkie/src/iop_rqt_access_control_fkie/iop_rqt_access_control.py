@@ -309,6 +309,16 @@ class AccessControlClient(Plugin):
                 return client
         return None
 
+    def release_all(self):
+        cmd = OcuCmd()
+        for robot in self._robotlist:
+            cmd_entry = robot.state_to_cmd()
+            robot.ocu_client = None
+            cmd_entry.access_control = self.ACCESS_CONTROL_RELEASE
+            self._widget.label_address.setText("---")
+            cmd.cmds.append(cmd_entry)
+        self._send_cmd(cmd)
+
     def on_ros_shutdown(self, *args):
         try:
             from python_qt_binding.QtGui import QApplication
@@ -327,7 +337,8 @@ class AccessControlClient(Plugin):
         self.signal_system.emit(msg)
 
     def shutdown_plugin(self):
-        # TODO: send access release?
+        # send access release?
+        self.release_all()
         self.shutdownRosComm()
 
     def save_settings(self, plugin_settings, instance_settings):
