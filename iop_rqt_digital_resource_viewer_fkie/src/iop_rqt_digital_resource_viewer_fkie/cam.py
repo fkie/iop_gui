@@ -17,32 +17,53 @@
 # <http://www.gnu.de/documents/gpl-2.0.html>
 #
 
+from python_qt_binding.QtCore import Qt, Signal
 
-class Cam(object):
-    def __init__(self, endpoint, cam_button, state):
+try:
+    from python_qt_binding.QtGui import QPushButton
+except:
+    from python_qt_binding.QtWidgets import QPushButton
+
+
+class Cam(QPushButton):
+
+    signal_play = Signal(str)
+    signal_stop = Signal(str)
+
+    def __init__(self, endpoint, parent=None):
         self._endpoint = endpoint
-        self._cam_button = cam_button
-        self._state = state
+        self.name = "%s - %d" % (Cam.endpoint_type_as_str(endpoint.server_type), endpoint.resource_id)
+        QPushButton.__init__(self, self.name, parent)
+        self.setCheckable(True)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setFixedHeight(24)
+#        self.setFixedSize(57, 24)
+        self.clicked.connect(self._on_clicked)
 
     def __repr__(self):
-        st = self._endpoint_type_as_str(self._endpoint.server_type)
+        st = self.endpoint_type_as_str(self._endpoint.server_type)
         return "%s [%s - %d: %d.%d.%d]" % (self._endpoint.server_url, st, self._endpoint.resource_id, self._endpoint.address.subsystem_id, self._endpoint.address.node_id, self._endpoint.address.component_id)
 
-    def get_cam_button(self):
-        return self._cam_button
+    def _on_clicked(self, checked):
+        if checked:
+            self.signal_play.emit(self._endpoint.server_url)
+            self.setStyleSheet("QPushButton { background-color: #98FB98;}")
+        else:
+            self.signal_stop.emit(self._endpoint.server_url)
+            self.setStyleSheet("QPushButton { background-color: None;}")
 
-    def set_state(self, state):
-        if self._state != state:
-            self._state = state
-            if state:
-                self._cam_button.setStyleSheet("QPushButton {background-color: #A4A4A4; border-style:inset;}")
-                self._cam_button.setChecked(True)
-            else:
-                self._cam_button.setStyleSheet("QPushButton {background-color: None; border-style:None;}")
-                self._cam_button.setChecked(False)
+    def is_played(self):
+        return self.isChecked()
 
-    def get_state(self):
-        return self._state
+    def set_played(self, state):
+        self.setChecked(state)
+        if state:
+            self.setStyleSheet("QPushButton { background-color: #98FB98;}")
+        else:
+            self.setStyleSheet("QPushButton { background-color: None;}")
+
+    def get_url(self):
+        return self._endpoint.server_url
 
     def get_endpoint(self):
         return self._endpoint
@@ -75,7 +96,8 @@ class Cam(object):
                     return True
         return False
 
-    def _endpoint_type_as_str(self, val):
+    @classmethod
+    def endpoint_type_as_str(cls, val):
         if val == 0:
             return 'RTSP'
         elif val == 1:

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>467</width>
-    <height>91</height>
+    <height>86</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -49,50 +49,7 @@
         </property>
         <item>
          <property name="text">
-          <string>endpoints</string>
-         </property>
-        </item>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QFrame" name="frame_6">
-     <layout class="QFormLayout" name="formLayout_4">
-      <property name="fieldGrowthPolicy">
-       <enum>QFormLayout::ExpandingFieldsGrow</enum>
-      </property>
-      <property name="margin">
-       <number>1</number>
-      </property>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_5">
-        <property name="minimumSize">
-         <size>
-          <width>90</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="text">
-         <string>update service:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QComboBox" name="comboBox_update_service">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="editable">
-         <bool>true</bool>
-        </property>
-        <item>
-         <property name="text">
-          <string>update_endpoints</string>
+          <string>digital_endpoints</string>
          </property>
         </item>
        </widget>

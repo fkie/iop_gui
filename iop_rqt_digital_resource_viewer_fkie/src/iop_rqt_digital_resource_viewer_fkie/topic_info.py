@@ -20,18 +20,6 @@
 
 import rospy
 import rosgraph
-import roslib
-import roslib.message
-
-
-def master_get_published_topics(topic_type):
-    ti = TopicInfo()
-    return ti.get_published_topics(topic_type)
-
-
-def master_get_subscribed_topics(topic_type):
-    ti = TopicInfo()
-    return ti.get_subscribed_topics(topic_type)
 
 
 class TopicInfo(object):
@@ -46,7 +34,7 @@ class TopicInfo(object):
         self._master = rosgraph.Master(rospy.get_name())
         try:
             self.update()
-        except:
+        except Exception:
             self._system_state = [[], [], []]
             self._topic_types = []
 
@@ -63,20 +51,6 @@ class TopicInfo(object):
         Usually this is the current configured topic.
         '''
         self.fill_topics(container, topic_type, TopicInfo.publishers_idx, first_topic)
-
-    def fill_subscribed_topics(self, container, topic_type, first_topic=None):
-        '''
-        Fill subscribed topics of type topic_type into container, preceded by
-        first_topic.
-        Convenience method to fill a QComboBox.
-        @param container the container to fill. container must provide the
-        methods "clear()" and "addItems()"
-        @param topic_type the type of the topic. This can be a message type or
-        a string.
-        @param first_topic additional item which is placed at first position.
-        Usually this is the current configured topic.
-        '''
-        self.fill_topics(container, topic_type, TopicInfo.subscribers_idx, first_topic)
 
     def fill_topics(self, container, topic_type, idx, first_topic=None):
         container.clear()
@@ -97,47 +71,6 @@ class TopicInfo(object):
         val = [t[0] for t in self._system_state[idx] if [t[0], topic_str] in self._topic_types]
         return val
 
-    def get_published_topics(self, topic_type):
-        '''
-        Returns all published topics of type topic_type. The topics information
-        from the last call to update() is used.
-        @param topic_type the type of the topic. This can be a message type or
-        a string.
-        '''
-        return self._get_topics(topic_type, TopicInfo.publishers_idx)
-
-    def get_subscribed_topics(self, topic_type):
-        '''
-        Returns all subscribed topics of type topic_type. The topics information
-        from the last call to update() is used.
-        @param topic_type the type of the topic. This can be a message type or
-        a string.
-        '''
-        return self._get_topics(topic_type, TopicInfo.subscribers_idx)
-
-    def get_topic_type_str(self, topic):
-        '''
-        Returns the topic_type (str) of topic. The topics information
-        from the last call to update() is used.
-        @param topic the name of the topic.
-        '''
-        try:
-            return [t[1] for t in self._topic_types if t[0] == topic][0]
-        except IndexError:
-            return None
-
-    def get_topic_type(self, topic):
-        '''
-        Returns (topic_type, topic_type_str) of topic. The topics information
-        from the last call to update() is used.
-        @param topic the name of the topic.
-        '''
-        try:
-            topic_type_str = self.get_topic_type_str(topic)
-            return (roslib.message.get_message_class(topic_type_str), topic_type_str)
-        except TypeError:
-            return (None, None)
-
     def update(self):
         '''
         Retrieve topic informations from master.
@@ -146,27 +79,3 @@ class TopicInfo(object):
         '''
         self._system_state = self._master.getSystemState()
         self._topic_types = self._master.getTopicTypes()
-
-    def publishers(self):
-        '''
-        Return all publishers known to the master at last call to update().
-        '''
-        return self._system_state[TopicInfo.publishers_idx]
-
-    def subscribers(self):
-        '''
-        Return all subscribers known to the master at last call to update().
-        '''
-        return self._system_state[TopicInfo.subscribers_idx]
-
-    def services(self):
-        '''
-        Return all services known to the master at last call to update().
-        '''
-        return self._system_state[TopicInfo.services_idx]
-
-    def topic_types(self):
-        return self._topic_types
-
-    def system_state(self):
-        return self._system_state

@@ -18,44 +18,28 @@
 #
 
 from iop_msgs_fkie.msg import DigitalResourceEndpoints
-from iop_msgs_fkie.srv import QueryByAddr
 from python_qt_binding import loadUi
-from python_qt_binding.QtCore import Signal, QUrl, Qt
-from python_qt_binding.QtGui import QIcon
+from python_qt_binding.QtCore import Signal, Qt
+from python_qt_binding.QtGui import QIcon, QPalette, QColor
 try:
-    from python_qt_binding.QtGui import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDialog, QPushButton, QMessageBox
+    from python_qt_binding.QtGui import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDialog, QMessageBox
 except:
-    from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDialog, QPushButton, QMessageBox
+    from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDialog, QMessageBox
 
 from qt_gui.plugin import Plugin
 import os
+import sys
 import rosgraph
-import roslib.message
 import rospy
 
-from iop_ocu_controllib_fkie.ocu_control_slave import OcuControlSlave
-
-from .cams import Cam
+from .cam import Cam
 from .topic_info import TopicInfo
-
-
-# try to import phonon
-try:
-    from python_qt_binding.phonon import Phonon
-except:
-    try:
-        from python_qt_binding.QtCore import QT_VERSION_STR
-        from PyQt4.phonon import Phonon
-    except:
-        from PySide.phonon import Phonon
+import vlc
 
 
 class DigitalResourceViewer(Plugin):
 
     signal_topic_endpoints = Signal(DigitalResourceEndpoints)
-    signal_play = Signal()
-    signal_stop = Signal()
-    signal_update_entpoints = Signal()
 
     def __init__(self, context):
         super(DigitalResourceViewer, self).__init__(context)
@@ -73,8 +57,6 @@ class DigitalResourceViewer(Plugin):
         # Create QWidget
         self._widget = QWidget()
         self._cam_list = []
-        self._current_cam = None
-        self._start = False
         # Get path to UI file which is a sibling of this file
         # in this example the .ui and .py file are in the same folder
         # ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'MyPlugin.ui')
@@ -95,33 +77,44 @@ class DigitalResourceViewer(Plugin):
         # Add widget to the user interface
         context.add_widget(self._widget)
         self.context = context
-        self._topic_endpoints = rospy.names.ns_join(rospy.get_namespace(), 'endpoints')
-        self._service_update_endpoints = rospy.names.ns_join(rospy.get_namespace(), 'update_endpoints')
-        self._subscriber_control_platform = None
+        self._topic_endpoints = rospy.names.ns_join(rospy.get_namespace(), 'digital_endpoints')
         self._subscriber_endpoints = None
         self._endpoints = None
         self.signal_topic_endpoints.connect(self.signal_callback_endpoints)
-        self.signal_play.connect(self.clicked_play)
-        self.signal_stop.connect(self.clicked_stop)
-        self.signal_update_entpoints.connect(self.clicked_update)
         self._widget.pushButton_info.clicked.connect(self.show_info)
-        self._widget.pushButton_info.setIcon(QIcon.fromTheme("help-about"))
+        # self._widget.pushButton_info.setIcon(QIcon.fromTheme("help-about"))
         self._widget.pushButton_info.setStyleSheet("QPushButton{border: None;background-repeat: no-repeat;}")
-        self._hbox_cam_control = QHBoxLayout()
-        self._widget.frame.setLayout(self._hbox_cam_control)
+        self._layout_buttons = QHBoxLayout()
+        self._widget.buttonsFrame.setLayout(self._layout_buttons)
+        self._current_cam = None
 
-        self._cam_id = 1
-        # rtsp player
-        self.player = Phonon.VideoPlayer(Phonon.VideoCategory, self._widget)
-        self.player.finished.connect(self.player.deleteLater)
-        self._widget.layout().addWidget(self.player)
-        self._ocu_control_slave = OcuControlSlave()
-        self._ocu_control_slave.set_control_platform_handler(self.control_platform_callback)
-        self._ocu_control_slave.set_access_control_handler(self.access_control_handler)
-        self._media = Phonon.MediaObject()
+        # create video frame
+        self.palette = self._widget.videoFrame.palette()
+        self.palette.setColor(QPalette.Window, QColor(0, 0, 0))
+        self._widget.videoFrame.setPalette(self.palette)
+        self._widget.videoFrame.setAutoFillBackground(True)
+        # creating a basic vlc instance
+        self.vlc_instance = vlc.Instance()
+        # creating an empty vlc media player
+        self.mediaplayer = self.vlc_instance.media_player_new()
+        # the media player has to be 'connected' to the QFrame
+        # (otherwise a video would be displayed in it's own window)
+        # this is platform specific!
+        # you have to give the id of the QFrame (or similar object) to
+        # vlc, different platforms have different functions for this
+        if sys.platform.startswith('linux'):  # for Linux using the X Server
+            self.mediaplayer.set_xwindow(self._widget.videoFrame.winId())
+        elif sys.platform == "win32":  # for Windows
+            self.mediaplayer.set_hwnd(self._widget.videoFrame.winId())
+        elif sys.platform == "darwin":  # for MacOS
+            self.mediaplayer.set_nsobject(int(self._widget.videoFrame.winId()))
+
+        self.media = self.vlc_instance.media_new("https://youtu.be/h4rhdZ_MXf8?t=17")
+        # put the media in the media player
+        self.mediaplayer.set_media(self.media)
+        self.mediaplayer.play()
 
     def show_info(self):
-        # self.clicked_update()
         if len(self._cam_list):
             info_msg = ""
             i = 1
@@ -140,28 +133,27 @@ class DigitalResourceViewer(Plugin):
             self._info_window.show()
 
     def shutdown_plugin(self):
-        # TODO unregister all publishers here
+        # unregister all publishers here
+        self.stop_current()
         self.shutdownRosComm()
 
     def save_settings(self, plugin_settings, instance_settings):
-        # TODO save intrinsic configuration, usually using:
+        # save intrinsic configuration, usually using:
         # instance_settings.set_value(k, v)
         instance_settings.set_value('topic_endpoints', self._topic_endpoints)
-        instance_settings.set_value('service_update_endpoints', self._service_update_endpoints)
 
     def restore_settings(self, plugin_settings, instance_settings):
-        # TODO restore intrinsic configuration, usually using:
+        # restore intrinsic configuration, usually using:
         # v = instance_settings.value(k)
         self.shutdownRosComm()
-        self._topic_endpoints = instance_settings.value('topic_endpoints', rospy.names.ns_join(rospy.get_namespace(), 'endpoints'))
-        self._service_update_endpoints = instance_settings.value('service_update_endpoints', rospy.names.ns_join(rospy.get_namespace(), 'update_endpoints'))
+        self._topic_endpoints = instance_settings.value('topic_endpoints', rospy.names.ns_join(rospy.get_namespace(), 'digital_endpoints'))
         self.reinitRosComm()
 
     def reinitRosComm(self):
         if self._topic_endpoints:
             self._topic_endpoints = rosgraph.names.script_resolve_name('rostopic', self._topic_endpoints)
             if self._topic_endpoints:
-                self._subscriber_control_platform = rospy.Subscriber(self._topic_endpoints, DigitalResourceEndpoints, self.callback_endpoints)
+                self._subscriber_endpoints = rospy.Subscriber(self._topic_endpoints, DigitalResourceEndpoints, self.callback_endpoints)
 
     def shutdownRosComm(self):
         if self._subscriber_endpoints:
@@ -172,7 +164,7 @@ class DigitalResourceViewer(Plugin):
         self.signal_topic_endpoints.emit(msg)
 
     def signal_callback_endpoints(self, msg):
-        # update
+        # update endpoints
         self._endpoints = msg
         self.create_cam_buttons(msg.endpoints)
 
@@ -181,123 +173,59 @@ class DigitalResourceViewer(Plugin):
             new_cam_list = []
             for cam in self._cam_list:
                 if not cam.is_in(endpoints):
-                    widgetToRemove = cam.get_cam_button()
-                    self._hbox_cam_control.removeWidget(widgetToRemove)
-                    widgetToRemove.setParent(None)
+                    self._layout_buttons.removeWidget(cam)
+                    cam.setParent(None)
                 else:
                     new_cam_list.append(cam)
             self._cam_list = new_cam_list
 
         for endpoint in endpoints:
-            button = QPushButton("cam %d" % self._cam_id)
-            button.setFixedSize(57, 24)
-            button.clicked.connect(self.activate_cam)
-            new_cam = Cam(endpoint, button, False)
+            new_cam = Cam(endpoint)
             if not new_cam.is_in(self._cam_list):
-                self._cam_id += 1
-                self._hbox_cam_control.addWidget(button)
+                new_cam.signal_play.connect(self.play)
+                new_cam.signal_stop.connect(self.stop)
+                self._layout_buttons.addWidget(new_cam)
                 self._cam_list.append(new_cam)
 
-    def activate_cam(self):
+    def play(self, url):
         try:
-            if self._current_cam is not None:
-                self.clicked_stop()
-            elif self._ocu_control_slave.get_access_control() < 2:
-                for cam in self._cam_list:
-                    if cam.get_cam_button() == self.sender():
-                        if not cam.get_state():
-                            self._current_cam = cam
-                            self.clicked_play()
-            else:
-                msgBox = QMessageBox()
-                msgBox.setText("No access was granted! Use iop_rqt_access_control to get access to the robot!")
-                msgBox.exec_()
-        except rospy.ServiceException, e:
-            print "Can not play the videostream %s" % e
-
-    def control_activated(self, subsystem_name=''):
-        return
-
-    def clicked_update(self):
-        srvs_name = self._service_update_endpoints
-        try:
-            update_srvs = rospy.ServiceProxy(srvs_name, QueryByAddr)
-            update_srvs(self._ocu_control_slave.get_control_platform())
-        except rospy.ServiceException, e:
-            print "Service call for update JAUS endpoints failed: %s" % e
-
-    def clicked_play(self):
-        try:
-            if self._current_cam is None:
-                if self._cam_list:
-                    self._current_cam = self._cam_list[0]
-            if self._current_cam is not None:
-                stream_path = self._current_cam.get_endpoint().server_url
-                if stream_path:
-                    url = QUrl(stream_path.split()[0])
-    #       m.aboutToFinish.connect(self.aboutToFinish)
-    #       m.bufferStatus.connect(self.aboutToFinish)
-    #       m.currentSourceChanged.connect(self.currentSourceChanged)
-    #       m.finished.connect(self.finished)
-    #       m.hasVideoChanged.connect(self.hasVideoChanged)
-    #       m.metaDataChanged.connect(self.metaDataChanged)
-    #       m.prefinishMarkReached.connect(self.prefinishMarkReached)
-    #       m.seekableChanged.connect(self.seekableChanged)
-    #       m.stateChanged.connect(self.stateChanged)
-    #       m.tick.connect(self.tick)
-    #       m.totalTimeChanged.connect(self.totalTimeChanged)
-                    self._media.setCurrentSource(Phonon.MediaSource(url))
-                    self.player.play(self._media.currentSource())
-                    self._current_cam.set_state(True)
+            print "play", url
+            self.stop_current()
+            if url:
+                self.media = self.vlc_instance.media_new(url)
+                # put the media in the media player
+                self.mediaplayer.set_media(self.media)
+                self.mediaplayer.play()
+                self._current_cam = self.sender()
         except rospy.ServiceException, e:
             print "Can not play the video: %s" % e
 
-    def clicked_stop(self):
-        try:
-            if self._current_cam is not None:
-                self._current_cam.set_state(False)
-                self._current_cam = None
-            self.player.stop()
-        except rospy.ServiceException, e:
-            print "Can not stoped the video: %s" % e
+    def stop(self, url):
+        print "stop", url
+        if self._current_cam.get_url() == url:
+            self.mediaplayer.stop()
+            self._current_cam = None
 
-    def control_platform_callback(self, subsystem_id, node_id, component_id, authority):
-        if component_id == 0:
-            self.signal_stop.emit()
-        else:
-            self.signal_update_entpoints.emit()
-
-    def access_control_handler(self, access_control):
-        if access_control == OcuControlSlave.ACCESS_CONTROL_RELEASE:
-            self.signal_stop.emit()
-        else:
-            self.signal_play.emit()
+    def stop_current(self):
+        if self._current_cam is not None:
+            self._current_cam.set_played(False)
+            self.stop(self._current_cam.get_url())
 
     def trigger_configuration(self):
         # Comment in to signal that the plugin has a way to configure it
         # Usually used to open a configuration dialog
-
         self.dialog_config = QDialog()
         ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'iop_rqt_digital_resource_viewer_config.ui')
         loadUi(ui_file, self.dialog_config)
-
         self.dialog_config.accepted.connect(self.on_dialog_config_accepted)
-
         # fill configuration dialog
         ti = TopicInfo()
         ti.fill_published_topics(self.dialog_config.comboBox_endpoints_topic, "iop_msgs_fkie/DigitalResourceEndpoints", self._topic_endpoints)  # self._topic_endpoints
-        self.dialog_config.comboBox_update_service.clear()
-        self.dialog_config.comboBox_update_service.addItem(self._service_update_endpoints)
-        default_name = rospy.names.ns_join(rospy.get_namespace(), 'update_endpoints')
-        if default_name != self._service_update_endpoints:
-            self.dialog_config.comboBox_update_service.addItem(default_name)
-
-    # stop on cancel pressed
+        # stop on cancel pressed
         if not self.dialog_config.exec_():
             return
 
     def on_dialog_config_accepted(self):
         self.shutdownRosComm()
         self._topic_endpoints = self.dialog_config.comboBox_endpoints_topic.currentText()
-        self._service_update_endpoints = self.dialog_config.comboBox_update_service.currentText()
         self.reinitRosComm()
