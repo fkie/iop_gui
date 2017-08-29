@@ -17,6 +17,7 @@
 # <http://www.gnu.de/documents/gpl-2.0.html>
 #
 
+from std_msgs.msg import UInt16
 from iop_msgs_fkie.msg import DigitalResourceEndpoints
 from python_qt_binding import loadUi
 from python_qt_binding.QtCore import Signal, Qt
@@ -78,7 +79,9 @@ class DigitalResourceViewer(Plugin):
         context.add_widget(self._widget)
         self.context = context
         self._topic_endpoints = rospy.names.ns_join(rospy.get_namespace(), 'digital_endpoints')
+        self._topic_resource_id = rospy.names.ns_join(rospy.get_namespace(), 'dv_resource_id')
         self._subscriber_endpoints = None
+        self._publisher_resource_id = None
         self._endpoints = None
         self.signal_topic_endpoints.connect(self.signal_callback_endpoints)
         self._widget.pushButton_info.clicked.connect(self.show_info)
@@ -147,6 +150,7 @@ class DigitalResourceViewer(Plugin):
         # v = instance_settings.value(k)
         self.shutdownRosComm()
         self._topic_endpoints = instance_settings.value('topic_endpoints', rospy.names.ns_join(rospy.get_namespace(), 'digital_endpoints'))
+        self._topic_resource_id = instance_settings.value('topic_resource_id', rospy.names.ns_join(rospy.get_namespace(), 'dv_resource_id'))
         self.reinitRosComm()
 
     def reinitRosComm(self):
@@ -154,11 +158,18 @@ class DigitalResourceViewer(Plugin):
             self._topic_endpoints = rosgraph.names.script_resolve_name('rostopic', self._topic_endpoints)
             if self._topic_endpoints:
                 self._subscriber_endpoints = rospy.Subscriber(self._topic_endpoints, DigitalResourceEndpoints, self.callback_endpoints)
+        if self._topic_resource_id:
+            self._topic_resource_id = rosgraph.names.script_resolve_name('rostopic', self._topic_resource_id)
+            if self._topic_resource_id:
+                self._publisher_resource_id = rospy.Publisher(self._topic_resource_id, UInt16, latch=True)
 
     def shutdownRosComm(self):
         if self._subscriber_endpoints:
             self._subscriber_endpoints.unregister()
             self._subscriber_endpoints = None
+        if self._publisher_resource_id:
+            self._publisher_resource_id.unregister()
+            self._publisher_resource_id = None
 
     def callback_endpoints(self, msg):
         self.signal_topic_endpoints.emit(msg)
@@ -187,11 +198,14 @@ class DigitalResourceViewer(Plugin):
                 self._layout_buttons.addWidget(new_cam)
                 self._cam_list.append(new_cam)
 
-    def play(self, url):
+    def play(self, url, resource_id):
         try:
             print "play", url
             self.stop_current()
             if url:
+                ros_msg = UInt16()
+                ros_msg.data = resource_id
+                self._publisher_resource_id.publish(ros_msg)
                 self.media = self.vlc_instance.media_new(url)
                 # put the media in the media player
                 self.mediaplayer.set_media(self.media)
@@ -203,6 +217,9 @@ class DigitalResourceViewer(Plugin):
     def stop(self, url):
         print "stop", url
         if self._current_cam.get_url() == url:
+            ros_msg = UInt16()
+            ros_msg.data = 65535
+            self._publisher_resource_id.publish(ros_msg)
             self.mediaplayer.stop()
             self._current_cam = None
 
@@ -220,7 +237,8 @@ class DigitalResourceViewer(Plugin):
         self.dialog_config.accepted.connect(self.on_dialog_config_accepted)
         # fill configuration dialog
         ti = TopicInfo()
-        ti.fill_published_topics(self.dialog_config.comboBox_endpoints_topic, "iop_msgs_fkie/DigitalResourceEndpoints", self._topic_endpoints)  # self._topic_endpoints
+        ti.fill_published_topics(self.dialog_config.comboBox_endpoints_topic, "iop_msgs_fkie/DigitalResourceEndpoints", self._topic_endpoints)
+        ti.fill_subscribed_topics(self.dialog_config.comboBox_resource_topic, "std_msgs/UInt16", self._topic_resource_id)
         # stop on cancel pressed
         if not self.dialog_config.exec_():
             return
@@ -228,4 +246,5 @@ class DigitalResourceViewer(Plugin):
     def on_dialog_config_accepted(self):
         self.shutdownRosComm()
         self._topic_endpoints = self.dialog_config.comboBox_endpoints_topic.currentText()
+        self._topic_resource_id = self.dialog_config.comboBox_resource_topic.currentText()
         self.reinitRosComm()

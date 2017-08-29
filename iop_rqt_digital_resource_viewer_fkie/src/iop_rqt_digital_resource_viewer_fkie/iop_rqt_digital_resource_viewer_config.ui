@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>467</width>
-    <height>86</height>
+    <width>455</width>
+    <height>126</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -23,19 +23,6 @@
       <property name="margin">
        <number>1</number>
       </property>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_2">
-        <property name="minimumSize">
-         <size>
-          <width>90</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="text">
-         <string>endpoints topic:</string>
-        </property>
-       </widget>
-      </item>
       <item row="0" column="1">
        <widget class="QComboBox" name="comboBox_endpoints_topic">
         <property name="sizePolicy">
@@ -50,6 +37,62 @@
         <item>
          <property name="text">
           <string>digital_endpoints</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="minimumSize">
+         <size>
+          <width>95</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>endpoints topic:</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="frame_5">
+     <layout class="QFormLayout" name="formLayout_3">
+      <property name="fieldGrowthPolicy">
+       <enum>QFormLayout::ExpandingFieldsGrow</enum>
+      </property>
+      <property name="margin">
+       <number>1</number>
+      </property>
+      <item row="0" column="0">
+       <widget class="QLabel" name="currentResourceLabel">
+        <property name="minimumSize">
+         <size>
+          <width>95</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>resource topic: </string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="comboBox_resource_topic">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="editable">
+         <bool>true</bool>
+        </property>
+        <item>
+         <property name="text">
+          <string>dv_resource_id</string>
          </property>
         </item>
        </widget>

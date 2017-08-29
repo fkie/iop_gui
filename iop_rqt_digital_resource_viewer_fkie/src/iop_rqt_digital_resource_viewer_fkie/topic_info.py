@@ -52,6 +52,20 @@ class TopicInfo(object):
         '''
         self.fill_topics(container, topic_type, TopicInfo.publishers_idx, first_topic)
 
+    def fill_subscribed_topics(self, container, topic_type, first_topic=None):
+        '''
+        Fill subscribed topics of type topic_type into container, preceded by
+        first_topic.
+        Convenience method to fill a QComboBox.
+        @param container the container to fill. container must provide the
+        methods "clear()" and "addItems()"
+        @param topic_type the type of the topic. This can be a message type or
+        a string.
+        @param first_topic additional item which is placed at first position.
+        Usually this is the current configured topic.
+        '''
+        self.fill_topics(container, topic_type, TopicInfo.subscribers_idx, first_topic)
+
     def fill_topics(self, container, topic_type, idx, first_topic=None):
         container.clear()
         topics = self._get_topics(topic_type, idx)
