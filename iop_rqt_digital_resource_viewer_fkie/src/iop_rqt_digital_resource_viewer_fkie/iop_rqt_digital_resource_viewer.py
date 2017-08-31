@@ -96,26 +96,8 @@ class DigitalResourceViewer(Plugin):
         self.palette.setColor(QPalette.Window, QColor(0, 0, 0))
         self._widget.videoFrame.setPalette(self.palette)
         self._widget.videoFrame.setAutoFillBackground(True)
-        # creating a basic vlc instance
-        self.vlc_instance = vlc.Instance()
-        # creating an empty vlc media player
-        self.mediaplayer = self.vlc_instance.media_player_new()
-        # the media player has to be 'connected' to the QFrame
-        # (otherwise a video would be displayed in it's own window)
-        # this is platform specific!
-        # you have to give the id of the QFrame (or similar object) to
-        # vlc, different platforms have different functions for this
-        if sys.platform.startswith('linux'):  # for Linux using the X Server
-            self.mediaplayer.set_xwindow(self._widget.videoFrame.winId())
-        elif sys.platform == "win32":  # for Windows
-            self.mediaplayer.set_hwnd(self._widget.videoFrame.winId())
-        elif sys.platform == "darwin":  # for MacOS
-            self.mediaplayer.set_nsobject(int(self._widget.videoFrame.winId()))
-
-        self.media = self.vlc_instance.media_new("https://youtu.be/h4rhdZ_MXf8?t=17")
-        # put the media in the media player
-        self.mediaplayer.set_media(self.media)
-        self.mediaplayer.play()
+        self._rtsp_over_tcp = ''
+        self._create_vlc_player()
 
     def show_info(self):
         if len(self._cam_list):
@@ -144,6 +126,8 @@ class DigitalResourceViewer(Plugin):
         # save intrinsic configuration, usually using:
         # instance_settings.set_value(k, v)
         instance_settings.set_value('topic_endpoints', self._topic_endpoints)
+        instance_settings.set_value('topic_resource_id', self._topic_resource_id)
+        instance_settings.set_value('rtps_over_tcp', self._rtsp_over_tcp)
 
     def restore_settings(self, plugin_settings, instance_settings):
         # restore intrinsic configuration, usually using:
@@ -151,6 +135,10 @@ class DigitalResourceViewer(Plugin):
         self.shutdownRosComm()
         self._topic_endpoints = instance_settings.value('topic_endpoints', rospy.names.ns_join(rospy.get_namespace(), 'digital_endpoints'))
         self._topic_resource_id = instance_settings.value('topic_resource_id', rospy.names.ns_join(rospy.get_namespace(), 'dv_resource_id'))
+        rtsp_over_tcp = instance_settings.value('rtps_over_tcp', self._rtsp_over_tcp)
+        if rtsp_over_tcp != self._rtsp_over_tcp:
+            self._rtsp_over_tcp = rtsp_over_tcp
+            self._create_vlc_player()
         self.reinitRosComm()
 
     def reinitRosComm(self):
@@ -239,6 +227,8 @@ class DigitalResourceViewer(Plugin):
         ti = TopicInfo()
         ti.fill_published_topics(self.dialog_config.comboBox_endpoints_topic, "iop_msgs_fkie/DigitalResourceEndpoints", self._topic_endpoints)
         ti.fill_subscribed_topics(self.dialog_config.comboBox_resource_topic, "std_msgs/UInt16", self._topic_resource_id)
+        self.dialog_config.checkBoxRtspOverTcp.setChecked(len(self._rtsp_over_tcp) > 0)
+
         # stop on cancel pressed
         if not self.dialog_config.exec_():
             return
@@ -247,4 +237,27 @@ class DigitalResourceViewer(Plugin):
         self.shutdownRosComm()
         self._topic_endpoints = self.dialog_config.comboBox_endpoints_topic.currentText()
         self._topic_resource_id = self.dialog_config.comboBox_resource_topic.currentText()
+        rtsp_over_tcp = ''
+        if self.dialog_config.checkBoxRtspOverTcp.isChecked():
+            rtsp_over_tcp = "--rtsp-tcp"
+        if self._rtsp_over_tcp != rtsp_over_tcp:
+            self._rtsp_over_tcp = rtsp_over_tcp
+            self._create_vlc_player()
         self.reinitRosComm()
+
+    def _create_vlc_player(self):
+        # creating a basic vlc instance
+        self.vlc_instance = vlc.Instance(self._rtsp_over_tcp)
+        # creating an empty vlc media player
+        self.mediaplayer = self.vlc_instance.media_player_new()
+        # the media player has to be 'connected' to the QFrame
+        # (otherwise a video would be displayed in it's own window)
+        # this is platform specific!
+        # you have to give the id of the QFrame (or similar object) to
+        # vlc, different platforms have different functions for this
+        if sys.platform.startswith('linux'):  # for Linux using the X Server
+            self.mediaplayer.set_xwindow(self._widget.videoFrame.winId())
+        elif sys.platform == "win32":  # for Windows
+            self.mediaplayer.set_hwnd(self._widget.videoFrame.winId())
+        elif sys.platform == "darwin":  # for MacOS
+            self.mediaplayer.set_nsobject(int(self._widget.videoFrame.winId()))

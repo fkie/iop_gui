@@ -6,14 +6,21 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>455</width>
-    <height>126</height>
+    <width>553</width>
+    <height>160</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Jaus Digital Resource Viewer Config</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QCheckBox" name="checkBoxRtspOverTcp">
+     <property name="text">
+      <string>RTSP over TCP</string>
+     </property>
+    </widget>
+   </item>
    <item>
     <widget class="QFrame" name="frame_4">
      <layout class="QFormLayout" name="formLayout_2">
