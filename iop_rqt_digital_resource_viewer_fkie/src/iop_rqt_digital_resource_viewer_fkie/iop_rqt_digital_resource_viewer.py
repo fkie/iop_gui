@@ -18,7 +18,7 @@
 #
 
 from std_msgs.msg import UInt16
-from iop_msgs_fkie.msg import DigitalResourceEndpoints
+from iop_msgs_fkie.msg import DigitalResourceEndpoints, VisualSensorNames
 from python_qt_binding import loadUi
 from python_qt_binding.QtCore import Signal, Qt
 from python_qt_binding.QtGui import QIcon, QPalette, QColor
@@ -41,6 +41,7 @@ import vlc
 class DigitalResourceViewer(Plugin):
 
     signal_topic_endpoints = Signal(DigitalResourceEndpoints)
+    signal_topic_names = Signal(VisualSensorNames)
 
     def __init__(self, context):
         super(DigitalResourceViewer, self).__init__(context)
@@ -79,11 +80,15 @@ class DigitalResourceViewer(Plugin):
         context.add_widget(self._widget)
         self.context = context
         self._topic_endpoints = rospy.names.ns_join(rospy.get_namespace(), 'digital_endpoints')
+        self._topic_names = rospy.names.ns_join(rospy.get_namespace(), 'visual_sensor_names')
         self._topic_resource_id = rospy.names.ns_join(rospy.get_namespace(), 'dv_resource_id')
         self._subscriber_endpoints = None
+        self._subscriber_names = None
         self._publisher_resource_id = None
         self._endpoints = None
+        self._resource_names = {}
         self.signal_topic_endpoints.connect(self.signal_callback_endpoints)
+        self.signal_topic_names.connect(self.signal_callback_names)
         self._widget.pushButton_info.clicked.connect(self.show_info)
         # self._widget.pushButton_info.setIcon(QIcon.fromTheme("help-about"))
         self._widget.pushButton_info.setStyleSheet("QPushButton{border: None;background-repeat: no-repeat;}")
@@ -126,6 +131,7 @@ class DigitalResourceViewer(Plugin):
         # save intrinsic configuration, usually using:
         # instance_settings.set_value(k, v)
         instance_settings.set_value('topic_endpoints', self._topic_endpoints)
+        instance_settings.set_value('topic_names', self._topic_names)
         instance_settings.set_value('topic_resource_id', self._topic_resource_id)
         instance_settings.set_value('rtps_over_tcp', self._rtsp_over_tcp)
 
@@ -134,6 +140,7 @@ class DigitalResourceViewer(Plugin):
         # v = instance_settings.value(k)
         self.shutdownRosComm()
         self._topic_endpoints = instance_settings.value('topic_endpoints', rospy.names.ns_join(rospy.get_namespace(), 'digital_endpoints'))
+        self._topic_names = instance_settings.value('topic_names', rospy.names.ns_join(rospy.get_namespace(), 'visual_sensor_names'))
         self._topic_resource_id = instance_settings.value('topic_resource_id', rospy.names.ns_join(rospy.get_namespace(), 'dv_resource_id'))
         rtsp_over_tcp = instance_settings.value('rtps_over_tcp', self._rtsp_over_tcp)
         if rtsp_over_tcp != self._rtsp_over_tcp:
@@ -146,6 +153,10 @@ class DigitalResourceViewer(Plugin):
             self._topic_endpoints = rosgraph.names.script_resolve_name('rostopic', self._topic_endpoints)
             if self._topic_endpoints:
                 self._subscriber_endpoints = rospy.Subscriber(self._topic_endpoints, DigitalResourceEndpoints, self.callback_endpoints)
+        if self._topic_names:
+            self._topic_names = rosgraph.names.script_resolve_name('rostopic', self._topic_names)
+            if self._topic_names:
+                self._subscriber_names = rospy.Subscriber(self._topic_names, VisualSensorNames, self.callback_names)
         if self._topic_resource_id:
             self._topic_resource_id = rosgraph.names.script_resolve_name('rostopic', self._topic_resource_id)
             if self._topic_resource_id:
@@ -155,6 +166,9 @@ class DigitalResourceViewer(Plugin):
         if self._subscriber_endpoints:
             self._subscriber_endpoints.unregister()
             self._subscriber_endpoints = None
+        if self._subscriber_names:
+            self._subscriber_names.unregister()
+            self._subscriber_names = None
         if self._publisher_resource_id:
             self._publisher_resource_id.unregister()
             self._publisher_resource_id = None
@@ -162,10 +176,28 @@ class DigitalResourceViewer(Plugin):
     def callback_endpoints(self, msg):
         self.signal_topic_endpoints.emit(msg)
 
+    def callback_names(self, msg):
+        self.signal_topic_names.emit(msg)
+
     def signal_callback_endpoints(self, msg):
         # update endpoints
         self._endpoints = msg
         self.create_cam_buttons(msg.endpoints)
+
+    def signal_callback_names(self, msg):
+        # update endpoints
+        self._resource_names = {}
+        for n in msg.names:
+            self._resource_names[n.resource_id] = n.name
+        if self._resource_names:
+            for cam in self._cam_list:
+                cam.update_name(self._get_resource_name(cam.get_resource_id()))
+
+    def _get_resource_name(self, resource_id):
+        try:
+            return self._resource_names[resource_id]
+        except Exception:
+            return ''
 
     def create_cam_buttons(self, endpoints):
         if self._cam_list:
@@ -179,7 +211,7 @@ class DigitalResourceViewer(Plugin):
             self._cam_list = new_cam_list
 
         for endpoint in endpoints:
-            new_cam = Cam(endpoint)
+            new_cam = Cam(endpoint, self._get_resource_name(endpoint.resource_id))
             if not new_cam.is_in(self._cam_list):
                 new_cam.signal_play.connect(self.play)
                 new_cam.signal_stop.connect(self.stop)
@@ -226,6 +258,7 @@ class DigitalResourceViewer(Plugin):
         # fill configuration dialog
         ti = TopicInfo()
         ti.fill_published_topics(self.dialog_config.comboBox_endpoints_topic, "iop_msgs_fkie/DigitalResourceEndpoints", self._topic_endpoints)
+        ti.fill_published_topics(self.dialog_config.comboBox_name_topic, "iop_msgs_fkie/VisualSensorNames", self._topic_names)
         ti.fill_subscribed_topics(self.dialog_config.comboBox_resource_topic, "std_msgs/UInt16", self._topic_resource_id)
         self.dialog_config.checkBoxRtspOverTcp.setChecked(len(self._rtsp_over_tcp) > 0)
 
@@ -236,6 +269,7 @@ class DigitalResourceViewer(Plugin):
     def on_dialog_config_accepted(self):
         self.shutdownRosComm()
         self._topic_endpoints = self.dialog_config.comboBox_endpoints_topic.currentText()
+        self._topic_names = self.dialog_config.comboBox_name_topic.currentText()
         self._topic_resource_id = self.dialog_config.comboBox_resource_topic.currentText()
         rtsp_over_tcp = ''
         if self.dialog_config.checkBoxRtspOverTcp.isChecked():

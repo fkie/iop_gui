@@ -30,9 +30,12 @@ class Cam(QPushButton):
     signal_play = Signal(str, int)
     signal_stop = Signal(str)
 
-    def __init__(self, endpoint, parent=None):
+    def __init__(self, endpoint, name, parent=None):
         self._endpoint = endpoint
-        self.name = "%s - %d" % (Cam.endpoint_type_as_str(endpoint.server_type), endpoint.resource_id)
+        self._name = name
+        if not name:
+            self._name = Cam.endpoint_type_as_str(endpoint.server_type)
+        self.name = "%s/%d" % (self._name, endpoint.resource_id)
         QPushButton.__init__(self, self.name, parent)
         self.setCheckable(True)
         self.setFocusPolicy(Qt.NoFocus)
@@ -52,6 +55,13 @@ class Cam(QPushButton):
             self.signal_stop.emit(self._endpoint.server_url)
             self.setStyleSheet("QPushButton { background-color: None;}")
 
+    def update_name(self, name):
+        self._name = name
+        if not name:
+            self._name = Cam.endpoint_type_as_str(self._endpoint.server_type)
+        self.name = "%s/%d" % (self._name, self._endpoint.resource_id)
+        self.setText(self.name)
+
     def is_played(self):
         return self.isChecked()
 
@@ -70,6 +80,9 @@ class Cam(QPushButton):
 
     def get_subsystem(self):
         return self._point.address.subsystem_id
+
+    def get_resource_id(self):
+        return self._endpoint.resource_id
 
     def is_endpoint(self, endpoint):
         if self._endpoint.server_type != endpoint.server_type:
