@@ -36,7 +36,7 @@ from iop_msgs_fkie.msg import OcuCmdEntry, JausAddress
 
 class Robot(QObject):
 
-    MAX_AGE = 600
+    MAX_AGE = 60
 
     control_activated = Signal(Address)
     control_deactivated = Signal(Address)
@@ -168,7 +168,7 @@ class Robot(QObject):
         if self._subsystem.ident.name != subsystem.ident.name:
             return False
         self._subsystem = subsystem
-        self._last_update = rospy.Time.now()
+        # self._last_update = rospy.Time.now()
         return True
 
     def on_show_details(self):
@@ -269,9 +269,11 @@ class Robot(QObject):
     def update_ident(self, ident):
         if Address(ident.address) == Address(self._subsystem.ident.address):
             self._last_update = rospy.Time.now()
+            return True
+        return False
 
     def is_old(self):
-        return rospy.Time.now() - self._last_update > self.MAX_AGE
+        return rospy.Time.now() - self._last_update > rospy.Duration(self.MAX_AGE)
 
     def get_widget(self):
         return self._widget

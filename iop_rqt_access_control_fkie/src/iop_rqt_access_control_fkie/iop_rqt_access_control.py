@@ -109,6 +109,11 @@ class AccessControlClient(Plugin):
         self._sub_feedback = rospy.Subscriber(self._topic_feedback, OcuFeedback, self._ocu_feedback_handler, queue_size=10)
         self._sub_ident = rospy.Subscriber(self._topic_identification, Identification, self._ocu_ident_handler, queue_size=10)
         rospy.on_shutdown(self.on_ros_shutdown)
+        self._update_timer = rospy.Timer(rospy.Duration(5), self._update_robot_timer)
+
+    def _update_robot_timer(self, event):
+        for robot in self._robotlist:
+            robot.get_widget().setVisible(not robot.is_old())
 
     def signal_callback_subsystem(self, msg):
         if not msg.subsystems:
@@ -188,8 +193,9 @@ class AccessControlClient(Plugin):
                     robot.release_control()
                     cmd_release = OcuCmd()
                     cmd_entry1 = robot.state_to_cmd()
-                    if not robot.ocu_client.is_restricted():
-                        robot.ocu_client = None
+                    if robot.ocu_client is not None:
+                        if not robot.ocu_client.is_restricted():
+                            robot.ocu_client = None
                     cmd_release.cmds.append(cmd_entry1)
                     self._send_cmd(cmd_release)
                     deactivated_robot_id.append(robot.subsystem_id)
@@ -338,6 +344,7 @@ class AccessControlClient(Plugin):
 
     def shutdown_plugin(self):
         # send access release?
+        self._update_timer.shutdown()
         self.release_all()
         self.shutdownRosComm()
 
