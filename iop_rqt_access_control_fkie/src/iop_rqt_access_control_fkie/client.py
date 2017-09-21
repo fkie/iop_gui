@@ -106,7 +106,7 @@ class Client(object):
                     self._has_control_access = True
         return True
 
-    def get_warnings(self, subsystem=None):
+    def get_warnings(self, subsystem=None, has_control=False):
         '''
         Returns warnings for controlled subsystem. Returns all warnings if no subsystem specified.
         '''
@@ -119,6 +119,13 @@ class Client(object):
                     if address not in result:
                         result[address] = list()
                     result[address].append(service_info)
+        for address, services in self._ocu_nodes.items():
+            for service_info in services:
+                if service_info.addr_control.subsystem_id == subsystem:
+                    if has_control and service_info.access_state in [2]:  # see OcuServiceInfo for number
+                        if address not in result:
+                            result[address] = list()
+                        result[address].append(service_info)
         return result
 
     def __repr__(self, *args, **kwargs):

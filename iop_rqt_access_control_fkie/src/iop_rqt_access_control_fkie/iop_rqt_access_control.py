@@ -165,7 +165,7 @@ class AccessControlClient(Plugin):
         for robot in self._robotlist:
             warnings = dict()
             for client in self._clients:
-                cw = client.get_warnings(robot.subsystem_id)
+                cw = client.get_warnings(robot.subsystem_id, robot.has_control())
                 warnings.update(cw)
                 # set client if it is restricted to this robot
                 if robot.subsystem_id == client.subsystem_restricted:
