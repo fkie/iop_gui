@@ -21,7 +21,7 @@
 import os
 
 from python_qt_binding import loadUi
-from python_qt_binding.QtCore import QObject, QRect, Signal
+from python_qt_binding.QtCore import QObject, Signal, Qt
 from python_qt_binding.QtGui import QIcon
 try:
     from python_qt_binding.QtGui import QWidget, QVBoxLayout, QLabel, QDialog, QTreeWidget, QTreeWidgetItem, QTextBrowser
@@ -55,12 +55,16 @@ class Robot(QObject):
         self._widget.button_control.setObjectName(subsystem.ident.name)
         self._widget.button_view.clicked.connect(self._on_robot_view)
         self._widget.button_details.clicked.connect(self.on_show_details)
-        self._widget.button_warnings.hide()
+        self._widget.button_warnings.setEnabled(False)
         self._widget.button_warnings.clicked.connect(self.on_show_warnings)
+        self._widget.frame_handoff.hide()
+#        self._widget.requests_area.setMaximumHeight(45)
         self._last_update = rospy.Time.now()
         self._warnings = []
         self._feedback_warnings = dict()
         self._ocu_client = None
+        self._warning_dialog = self._create_warning_dialog()
+        self._detailed_dialog = self._create_detailed_dialog()
 
     @property
     def name(self):
@@ -85,6 +89,12 @@ class Robot(QObject):
             self._ocu_client.control_subsystem = self.subsystem_id
             if ocu_client.subsystem_restricted == self.subsystem_id:
                 self._widget.button_control.setEnabled(not ocu_client.only_monitor)
+            if self._ocu_client.handoff_supported:
+                self._widget.frame_handoff.show()
+                self.add_handoff_request("200.1.2", "no msg")
+                self.add_handoff_request("201.1.2", "no msg")
+            else:
+                self._widget.frame_handoff.hide()
         elif self.has_view() or self.has_control():
             self.set_warnings(["No free OCU client available!", "Start an ocu_client with different nodeID to be able to listen for sensors on second robot."])
 
@@ -98,6 +108,14 @@ class Robot(QObject):
     def set_control_active(self, state):
         self._widget.button_control.setEnabled(state)
 
+    def add_handoff_request(self, requester, message):
+        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'handoff_request.ui')
+        widget = QWidget()
+        loadUi(ui_file, widget)
+        widget.setObjectName(requester)
+        widget.label_requester.setText(requester)
+        self._widget.requests_layout.addWidget(widget)
+
     def _on_robot_control(self, checked=False):
         '''
         Click on control robot button. Change to controlled or monitor state.
@@ -110,6 +128,7 @@ class Robot(QObject):
         else:
             self.release_control()
             self.control_deactivated.emit(addr)
+            self._widget.frame_handoff.hide()
 #            if self.has_view():
 #                self.view_activated.emit(addr)
 
@@ -175,13 +194,9 @@ class Robot(QObject):
         '''
         Shows the subsystem in a new dialog as tree view.
         '''
-        diag = QDialog(self._widget)
-        vlayout = QVBoxLayout()
-        vlayout.setContentsMargins(0, 0, 0, 0)
-        vlayout.setSpacing(1)
-        treeWidget_components = QTreeWidget()
-        treeWidget_components.clear()
-        treeWidget_components.setGeometry(QRect(10, 50, 275, 180))
+        twc = self._detailed_dialog.treewidget_components
+        twc.clear()
+        client_info = "OCU client: ---"
         if self._ocu_client is not None:
             add_info = ''
             if self.ocu_client.subsystem_restricted == self.subsystem_id:
@@ -189,37 +204,30 @@ class Robot(QObject):
                     add_info = ' [restricted, only monitor]'
                 else:
                     add_info = ' [restricted]'
-            vlayout.addWidget(QLabel("OCU client: %s%s" % (self.ocu_client.address, add_info)))
+            client_info = "OCU client: %s%s" % (self.ocu_client.address, add_info)
+        self._detailed_dialog.label_info.setText(client_info)
         if self.name == self._subsystem.ident.name:
-            treeWidget_components.clear()
             for node in self._subsystem.nodes:
-                node_item = QTreeWidgetItem(treeWidget_components)
+                node_item = QTreeWidgetItem(twc)
                 node_item.setText(0, "%s [%d.%d.%d]" % (node.ident.name, node.ident.address.subsystem_id, node.ident.address.node_id, node.ident.address.component_id))
                 for comp in node.components:
                     cmp_item = QTreeWidgetItem(node_item)
                     cmp_item.setText(0, "Component %d.%d.%d" % (comp.address.subsystem_id, comp.address.node_id, comp.address.component_id))
-                    treeWidget_components.expandItem(node_item)
+                    twc.expandItem(node_item)
                     for srv in comp.services:
                         srv_item = QTreeWidgetItem(cmp_item)
                         srv_item.setText(0, "%s v%d.%d" % (srv.uri, srv.major_version, srv.minor_version))
-        treeWidget_components.setHeaderLabel("%s [%d]" % (self.name, self.subsystem_id))
-        diag.resize(300, 250)
-        diag.setWindowTitle("subsystem [%d]" % self.subsystem_id)
-        vlayout.addWidget(treeWidget_components)
-        diag.setLayout(vlayout)
-        diag.setWindowIcon(QIcon.fromTheme("help-about"))
-        diag.show()
+        if self._detailed_dialog.isVisible():
+            self._detailed_dialog.setFocus(Qt.ActiveWindowFocusReason)
+        else:
+            self._detailed_dialog.show()
 
     def on_show_warnings(self):
         '''
         Shows warning received by feedback.
         '''
-        diag = QDialog(self._widget)
-        vlayout = QVBoxLayout()
-        vlayout.setContentsMargins(0, 0, 0, 0)
-        vlayout.setSpacing(1)
-        text_browser = QTextBrowser()
-        vlayout.addWidget(text_browser)
+        text_browser = self._warning_dialog.warnings
+        text_browser.clear()
         if not self._warnings and not self._feedback_warnings:
             text_browser.append('No known warnings!')
         else:
@@ -231,11 +239,7 @@ class Robot(QObject):
                     text_browser.append("Client %s:" % client)
                     for service_info in service_infos:
                         text_browser.append("    %s[%s]: %s" % (service_info.uri, Address(service_info.addr_control), self.access_state_to_str(service_info.access_state)))
-        diag.resize(600, 250)
-        diag.setWindowTitle("Warning for %s" % self.name)
-        diag.setLayout(vlayout)
-        diag.setWindowIcon(QIcon.fromTheme("dialog-warning"))
-        diag.show()
+        self._warning_dialog.show()
 
     def set_feedback_warnings(self, warnings):
         '''
@@ -264,7 +268,10 @@ class Robot(QObject):
         else:
             self._widget.button_control.setStyleSheet("QPushButton { background-color: None;}")
             self._widget.button_view.setStyleSheet("QPushButton { background-color: None;}")
-        self._widget.button_warnings.setVisible(has_warning)
+        print "HAS WARNINGS", has_warning
+        if self._widget.frame_handoff.isVisible():
+            self._widget.own_request_frame.setVisible(has_warning)
+        self._widget.button_warnings.setEnabled(has_warning)
 
     def update_ident(self, ident):
         if Address(ident.address) == Address(self._subsystem.ident.address):
@@ -277,6 +284,25 @@ class Robot(QObject):
 
     def get_widget(self):
         return self._widget
+
+    def _create_warning_dialog(self):
+        diag = QDialog(self._widget)
+        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'warning_info.ui')
+        loadUi(ui_file, diag)
+        diag.resize(600, 250)
+        diag.setWindowTitle("Warning for %s" % self.name)
+        diag.setWindowIcon(QIcon.fromTheme("dialog-warning"))
+        return diag
+
+    def _create_detailed_dialog(self):
+        diag = QDialog(self._widget)
+        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'system_info.ui')
+        loadUi(ui_file, diag)
+        diag.treewidget_components.setHeaderLabel("%s [%d]" % (self.name, self.subsystem_id))
+        diag.resize(300, 250)
+        diag.setWindowTitle("subsystem [%d]" % self.subsystem_id)
+        diag.setWindowIcon(QIcon.fromTheme("help-about"))
+        return diag
 
     def access_state_to_str(self, state):
         if state == 0:

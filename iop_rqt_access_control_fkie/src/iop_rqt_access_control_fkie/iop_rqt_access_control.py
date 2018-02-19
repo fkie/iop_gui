@@ -99,15 +99,15 @@ class AccessControlClient(Plugin):
         self._topic_identification = '/iop_identification'
         self._topic_cmd = '/ocu_cmd'
         self._topic_feedback = '/ocu_feedback'
-        self._subscriber_discovery = None
         self._authority = 205
         self._access_control = self.ACCESS_CONTROL_RELEASE
-        self._pub_cmd = rospy.Publisher(self._topic_cmd, OcuCmd, latch=True, queue_size=10)
         self.signal_system.connect(self.signal_callback_subsystem)
         self.signal_feedback.connect(self.signal_callback_feedback)
         self.signal_ident.connect(self.signal_callback_ident)
-        self._sub_feedback = rospy.Subscriber(self._topic_feedback, OcuFeedback, self._ocu_feedback_handler, queue_size=10)
-        self._sub_ident = rospy.Subscriber(self._topic_identification, Identification, self._ocu_ident_handler, queue_size=10)
+        self._pub_cmd = None  # rospy.Publisher(self._topic_cmd, OcuCmd, latch=True, queue_size=10)
+        self._sub_feedback = None  # rospy.Subscriber(self._topic_feedback, OcuFeedback, self._ocu_feedback_handler, queue_size=10)
+        self._sub_ident = None  # rospy.Subscriber(self._topic_identification, Identification, self._ocu_ident_handler, queue_size=10)
+        self._subscriber_discovery = None
         rospy.on_shutdown(self.on_ros_shutdown)
         self._update_timer = rospy.Timer(rospy.Duration(5), self._update_robot_timer)
 
@@ -418,7 +418,7 @@ class AccessControlClient(Plugin):
             self._sub_ident = rospy.Subscriber(self._topic_identification, Identification, self._ocu_ident_handler, queue_size=10)
 
     def shutdownRosComm(self):
-        if self._subscriber_discovery:
+        if self._subscriber_discovery is not None:
             self._subscriber_discovery.unregister()
             self._subscriber_discovery = None
         if self._sub_feedback is not None:

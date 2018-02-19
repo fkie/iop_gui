@@ -42,6 +42,7 @@ class Client(object):
         self._ocu_nodes = dict()  # address of ocu client : services
         self._warnings = dict()  # address of ocu client : list of services with warnings
         self._has_control_access = False
+        self.handoff_supported = True
         self.control_subsystem = -1  # this value is set by robot.py
 
     @property
@@ -92,6 +93,7 @@ class Client(object):
         self._ocu_nodes[Address(feedback.reporter)] = feedback.services
         self._warnings = dict()
         self._has_control_access = False
+        self.handoff_supported = feedback.handoff_supported
         for services in self._ocu_nodes.values():
             for service_info in services:
                 warnstate = service_info.access_state in [4, 5]  # see OcuServiceInfo for number
