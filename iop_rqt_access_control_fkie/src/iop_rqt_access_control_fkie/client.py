@@ -41,6 +41,7 @@ class Client(object):
         self._only_monitor = False
         self._ocu_nodes = dict()  # address of ocu client : services
         self._warnings = dict()  # address of ocu client : list of services with warnings
+        self._ins_autorithy = dict()  # address of ocu client : list of services with INSUFFICIENT_AUTHORITY
         self._has_control_access = False
         self.handoff_supported = True
         self.control_subsystem = -1  # this value is set by robot.py
@@ -92,18 +93,22 @@ class Client(object):
             self._only_monitor = feedback.only_monitor
         self._ocu_nodes[Address(feedback.reporter)] = feedback.services
         self._warnings = dict()
+        self._ins_autorithy = dict()
         self._has_control_access = False
         self.handoff_supported = feedback.handoff_supported
         for services in self._ocu_nodes.values():
             for service_info in services:
-                warnstate = service_info.access_state in [4, 5]  # see OcuServiceInfo for number
                 address = Address(feedback.reporter)
-                if warnstate:
+                if service_info.access_state in [4, 5]:  # see OcuServiceInfo for number
                     if address not in self._warnings:
                         self._warnings[address] = list()
                     self._warnings[address].append(service_info)
 #                if service_info.access_state in [3, 6]:  # see OcuServiceInfo for number
 #                    self._assined_subsystems.add(service_info.addr_control.subsystem_id)
+                if service_info.access_state in [5]:  # ACCESS_STATE_INSUFFICIENT_AUTHORITY
+                    if address not in self._ins_autorithy:
+                        self._ins_autorithy[address] = list()
+                    self._ins_autorithy[address].append(service_info)
                 if service_info.access_state in [3]:  # see OcuServiceInfo for number
                     self._has_control_access = True
         return True
@@ -128,6 +133,21 @@ class Client(object):
                         if address not in result:
                             result[address] = list()
                         result[address].append(service_info)
+        return result
+
+    def get_srvs_ins_authority(self, subsystem=None):
+        '''
+        Returns warnings for controlled subsystem. Returns all warnings if no subsystem specified.
+        '''
+        if subsystem is None:
+            return self._ins_autorithy
+        result = dict()
+        for address, service_infos in self._ins_autorithy.items():
+            for service_info in service_infos:
+                if service_info.addr_control.subsystem_id == subsystem:
+                    if address not in result:
+                        result[address] = list()
+                    result[address].append(service_info)
         return result
 
     def __repr__(self, *args, **kwargs):

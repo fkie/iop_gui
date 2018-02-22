@@ -18,32 +18,25 @@
 #
 # :author: Alexander Tiderko
 
+import os
 import time
-from iop_msgs_fkie.msg import Identification, OcuFeedback, System, JausAddress, OcuCmd
 
 from python_qt_binding import loadUi
-from python_qt_binding.QtCore import Qt, Signal
 try:
-    from python_qt_binding.QtGui import QWidget, QDialog
-except:
-    from python_qt_binding.QtWidgets import QWidget, QDialog
+    from python_qt_binding.QtGui import QWidget
+except Exception:
+    from python_qt_binding.QtWidgets import QWidget
 
 from qt_gui.plugin import Plugin
-from std_srvs.srv import Empty
-import os
-import rosgraph
 import rospy
 
+from iop_msgs_fkie.msg import JausAddress, OcuCmd
 from .client import Client
 from .robot import Address, Robot
-from .topic_info import TopicInfo
+from .settings import Settings
 
 
 class AccessControlClient(Plugin):
-    signal_system = Signal(System)
-    signal_feedback = Signal(OcuFeedback)
-    signal_ident = Signal(Identification)
-
     ACCESS_CONTROL_RELEASE = 10
     ACCESS_CONTROL_MONITOR = 11
     ACCESS_CONTROL_REQUEST = 12
@@ -94,20 +87,13 @@ class AccessControlClient(Plugin):
         # Add widget to the user interface
         context.add_widget(self._widget)
         self.context = context
-        self._topic_discovery = '/iop_system'
-        self._service_update_discovery = '/iop_update_discovery'
-        self._topic_identification = '/iop_identification'
-        self._topic_cmd = '/ocu_cmd'
-        self._topic_feedback = '/ocu_feedback'
-        self._authority = 205
         self._access_control = self.ACCESS_CONTROL_RELEASE
-        self.signal_system.connect(self.signal_callback_subsystem)
-        self.signal_feedback.connect(self.signal_callback_feedback)
-        self.signal_ident.connect(self.signal_callback_ident)
-        self._pub_cmd = None  # rospy.Publisher(self._topic_cmd, OcuCmd, latch=True, queue_size=10)
-        self._sub_feedback = None  # rospy.Subscriber(self._topic_feedback, OcuFeedback, self._ocu_feedback_handler, queue_size=10)
-        self._sub_ident = None  # rospy.Subscriber(self._topic_identification, Identification, self._ocu_ident_handler, queue_size=10)
-        self._subscriber_discovery = None
+        self.settings = Settings()
+        self.settings.signal_system.connect(self.signal_callback_subsystem)
+        self.settings.signal_feedback.connect(self.signal_callback_feedback)
+        self.settings.signal_ident.connect(self.signal_callback_ident)
+        self.settings.signal_handoff_request.connect(self.signal_handoff_request)
+        self.settings.signal_handoff_response.connect(self.signal_handoff_response)
         rospy.on_shutdown(self.on_ros_shutdown)
         self._update_timer = rospy.Timer(rospy.Duration(5), self._update_robot_timer)
 
@@ -125,7 +111,7 @@ class AccessControlClient(Plugin):
                     updated = True
             if not updated:
                 # add new robot
-                robot = Robot(subsystem)
+                robot = Robot(subsystem, self.settings)
                 robot.control_activated.connect(self.on_robot_control_activated)
                 robot.control_deactivated.connect(self.on_robot_control_deactivated)
                 robot.view_activated.connect(self.on_robot_view_activated)
@@ -163,20 +149,39 @@ class AccessControlClient(Plugin):
         client.apply(control_feedback)
         # handle feedback of OCU clients
         for robot in self._robotlist:
+            # get all warnings for each subsystem
             warnings = dict()
             for client in self._clients:
                 cw = client.get_warnings(robot.subsystem_id, robot.has_control())
                 warnings.update(cw)
-                # set client if it is restricted to this robot
+            # get insufficient authority reports to update handoff state button
+            insathority = dict()
+            for client in self._clients:
+                cw = client.get_srvs_ins_authority(robot.subsystem_id)
+                insathority.update(cw)
+            # set client if it is restricted to this robot
+            for client in self._clients:
                 if robot.subsystem_id == client.subsystem_restricted:
                     if robot.ocu_client is None:
                         robot.ocu_client = client
             robot.set_feedback_warnings(warnings)
+            # update insufficient authority to activate handoff dialog
+            robot.handoff_dialog.update_authority_problems(insathority)
 
     def signal_callback_ident(self, ident):
         # update robot alive
         for robot in self._robotlist:
             robot.update_ident(ident)
+
+    def signal_handoff_request(self, request):
+        for robot in self._robotlist:
+            if robot.subsystem_id == request.component.subsystem_id:
+                robot.handoff_dialog.handle_handoff_request(request)
+
+    def signal_handoff_response(self, response):
+        for robot in self._robotlist:
+            if robot.subsystem_id == response.component.subsystem_id:
+                robot.handoff_dialog.handle_handoff_response(response)
 
     def on_robot_control_activated(self, addr):
         '''
@@ -197,7 +202,7 @@ class AccessControlClient(Plugin):
                         if not robot.ocu_client.is_restricted():
                             robot.ocu_client = None
                     cmd_release.cmds.append(cmd_entry1)
-                    self._send_cmd(cmd_release)
+                    self.settings.publish_cmd(cmd_release)
                     deactivated_robot_id.append(robot.subsystem_id)
             if robot.subsystem_id == addr.subsystem_id:
                 if robot.ocu_client is not None:
@@ -207,7 +212,7 @@ class AccessControlClient(Plugin):
                     if not robot.ocu_client.is_restricted():
                         robot.ocu_client = None
                     cmd_release.cmds.append(cmd_entry1)
-                    self._send_cmd(cmd_release)
+                    self.settings.publish_cmd(cmd_release)
         # set the ocu client for the new robot
         for robot in self._robotlist:
             if robot.subsystem_id == addr.subsystem_id:
@@ -226,7 +231,7 @@ class AccessControlClient(Plugin):
                     robot.activate_view()
             cmd_entry = robot.state_to_cmd()
             cmd.cmds.append(cmd_entry)
-        self._send_cmd(cmd)
+        self.settings.publish_cmd(cmd)
 
     def on_robot_control_deactivated(self, addr):
         '''
@@ -241,7 +246,7 @@ class AccessControlClient(Plugin):
                 cmd_entry.access_control = self.ACCESS_CONTROL_RELEASE
                 self._widget.label_address.setText("---")
             cmd.cmds.append(cmd_entry)
-        self._send_cmd(cmd)
+        self.settings.publish_cmd(cmd)
 
     def on_robot_view_activated(self, addr):
         '''
@@ -256,7 +261,7 @@ class AccessControlClient(Plugin):
                 robot.ocu_client = ocu_view_client
             cmd_entry = robot.state_to_cmd()
             cmd.cmds.append(cmd_entry)
-        self._send_cmd(cmd)
+        self.settings.publish_cmd(cmd)
 
     def on_robot_view_deactivated(self, addr):
         '''
@@ -269,7 +274,7 @@ class AccessControlClient(Plugin):
             if robot.subsystem_id == addr.subsystem_id:
                 robot.ocu_client = None
             cmd.cmds.append(cmd_entry)
-        self._send_cmd(cmd)
+        self.settings.publish_cmd(cmd)
 
     def get_client_for_control(self, subsystem):
         '''
@@ -323,7 +328,7 @@ class AccessControlClient(Plugin):
             cmd_entry.access_control = self.ACCESS_CONTROL_RELEASE
             self._widget.label_address.setText("---")
             cmd.cmds.append(cmd_entry)
-        self._send_cmd(cmd)
+        self.settings.publish_cmd(cmd)
 
     def on_ros_shutdown(self, *args):
         try:
@@ -333,121 +338,28 @@ class AccessControlClient(Plugin):
             from python_qt_binding.QtWidgets import QApplication
             QApplication.exit(0)
 
-    def _ocu_feedback_handler(self, control_feedback):
-        self.signal_feedback.emit(control_feedback)
-
-    def _ocu_ident_handler(self, ident):
-        self.signal_ident.emit(ident)
-
-    def callback_system(self, msg):
-        self.signal_system.emit(msg)
-
     def shutdown_plugin(self):
         # send access release?
         self._update_timer.shutdown()
         self.release_all()
-        self.shutdownRosComm()
+        self.settings.shutdownRosComm()
+        time.sleep(1)
 
     def save_settings(self, plugin_settings, instance_settings):
-        # TODO save intrinsic configuration, usually using:
-        # instance_settings.set_value(k, v)
-        instance_settings.set_value('authority', self._authority)
-        instance_settings.set_value('iop_system', self._topic_discovery)
-        instance_settings.set_value('iop_update_discovery', self._service_update_discovery)
-        instance_settings.set_value('iop_identification', self._topic_identification)
-        instance_settings.set_value('ocu_cmd', self._topic_cmd)
-        instance_settings.set_value('ocu_feedback', self._topic_feedback)
+        self.settings.save_settings(plugin_settings, instance_settings)
 
     def restore_settings(self, plugin_settings, instance_settings):
-
-        # TODO restore intrinsic configuration, usually using:
-        # v = instance_settings.value(k)
-        # TODO RELEASE ALL CONNROL?
-        self.shutdownRosComm()
-        self._authority = (int)(instance_settings.value('authority', 220))
-        self._topic_discovery = instance_settings.value('iop_system', '/iop_system')
-        self._service_update_discovery = instance_settings.value('iop_update_discovery', '/iop_update_discovery')
-        self._topic_identification = instance_settings.value('iop_identification', '/iop_identification')
-        self._topic_cmd = instance_settings.value('ocu_cmd', '/ocu_cmd')
-        self._topic_feedback = instance_settings.value('ocu_feedback', '/ocu_feedback')
-
-        self.reinitRosComm()
+        self.settings.restore_settings(plugin_settings, instance_settings)
 
     def trigger_configuration(self):
-        # Comment in to signal that the plugin has a way to configure it
-        # Usually used to open a configuration dialog
-        self.dialog_config = QDialog()
-        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'iop_rqt_access_control_config.ui')
-        loadUi(ui_file, self.dialog_config)
-
-        self.dialog_config.accepted.connect(self.on_dialog_config_accepted)
-
-        # fill configuration dialog
-        ti = TopicInfo()
-        ti.fill_published_topics(self.dialog_config.comboBox_discovery_topic, "iop_msgs_fkie/System", self._topic_discovery)
-        default_name = rospy.names.ns_join(rospy.get_namespace(), 'iop_update_discovery')
-        if default_name != self._service_update_discovery:
-            self.dialog_config.comboBox_update_service.addItem(default_name)
-        ti.fill_published_topics(self.dialog_config.comboBox_identification_topic, "iop_msgs_fkie/Identification", self._topic_identification)
-        ti.fill_published_topics(self.dialog_config.comboBox_cmd_topic, "iop_msgs_fkie/OcuCmd", self._topic_cmd)
-        ti.fill_published_topics(self.dialog_config.comboBox_feedback_topic, "iop_msgs_fkie/OcuFeedback", self._topic_feedback)
-        # stop on cancel pressed
-        if not self.dialog_config.exec_():
-            return
+        self.settings.trigger_configuration()
 
     def on_dialog_config_accepted(self):
-        self.shutdownRosComm()
-        self._topic_discovery = self.dialog_config.comboBox_discovery_topic.currentText()
-        self._service_update_discovery = self.dialog_config.comboBox_update_service.currentText()
-        self._authority = (int)(self.dialog_config.comboBox_authority.currentText())
-        self._topic_identification = self.dialog_config.comboBox_identification_topic.currentText()
-        self._topic_cmd = self.dialog_config.comboBox_cmd_topic.currentText()
-        self._topic_feedback = self.dialog_config.comboBox_feedback_topic.currentText()
-        self.reinitRosComm()
-
-    def reinitRosComm(self):
-        if self._topic_discovery:
-            self._topic_discovery = rosgraph.names.script_resolve_name('rostopic', self._topic_discovery)
-            if self._topic_discovery:
-                self._subscriber_discovery = rospy.Subscriber(self._topic_discovery, System, self.callback_system)
-        if self._pub_cmd is None:
-            self._pub_cmd = rospy.Publisher(self._topic_cmd, OcuCmd, latch=True, queue_size=10)
-        if self._sub_feedback is None:
-            self._sub_feedback = rospy.Subscriber(self._topic_feedback, OcuFeedback, self._ocu_feedback_handler, queue_size=10)
-        if self._sub_ident is None:
-            self._sub_ident = rospy.Subscriber(self._topic_identification, Identification, self._ocu_ident_handler, queue_size=10)
-
-    def shutdownRosComm(self):
-        if self._subscriber_discovery is not None:
-            self._subscriber_discovery.unregister()
-            self._subscriber_discovery = None
-        if self._sub_feedback is not None:
-            self._sub_feedback.unregister()
-            self._sub_feedback = None
-        if self._sub_ident is not None:
-            self._sub_ident.unregister()
-            self._sub_ident = None
-        if self._pub_cmd is not None:
-            self._pub_cmd.unregister()
-            self._pub_cmd = None
+        self.settings.on_dialog_config_accepted()
 
     def clicked_update(self):
         '''
         Currently there are no interface to update the subsystem
         '''
         # send query identification to update the system
-        srvs_name = self._service_update_discovery
-        # rospy.wait_for_service(srvs_name)
-        try:
-            update_srvs = rospy.ServiceProxy(srvs_name, Empty)
-            update_srvs()
-        except rospy.ServiceException, e:
-            print "Service call for update JAUS network failed: %s" % e
-
-    def _send_cmd(self, cmd):
-        '''
-        Publishes the command message to the topic.
-        :type cmd: OcuCmd
-        '''
-        time.sleep(0.1)
-        self._pub_cmd.publish(cmd)
+        self.settings.update_discovery()

@@ -45,7 +45,7 @@ class TopicInfo(object):
         self._master = rosgraph.Master(rospy.get_name())
         try:
             self.update()
-        except:
+        except Exception:
             self._system_state = [[], [], []]
             self._topic_types = []
 
