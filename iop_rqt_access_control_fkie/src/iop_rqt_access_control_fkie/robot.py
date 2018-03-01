@@ -53,6 +53,7 @@ class Robot(QObject):
         self._widget = QWidget()
         loadUi(ui_file, self._widget)
         self._last_update = rospy.Time.now()
+        self._component_names = dict()
         self._warnings = []
         self._feedback_warnings = dict()
         self._ocu_client = None
@@ -202,10 +203,12 @@ class Robot(QObject):
         if self.name == self._subsystem.ident.name:
             for node in self._subsystem.nodes:
                 node_item = QTreeWidgetItem(twc)
-                node_item.setText(0, "%s [%d.%d.%d]" % (node.ident.name, node.ident.address.subsystem_id, node.ident.address.node_id, node.ident.address.component_id))
+                node_name = node.ident.name if node.ident.name else "NODE"
+                node_item.setText(0, "%s [id: %d]" % (node_name, node.ident.address.node_id))
                 for comp in node.components:
                     cmp_item = QTreeWidgetItem(node_item)
-                    cmp_item.setText(0, "Component %d.%d.%d" % (comp.address.subsystem_id, comp.address.node_id, comp.address.component_id))
+                    cmp_name = self._get_component_name(comp.address)
+                    cmp_item.setText(0, "%s [%d.%d.%d]" % (cmp_name, comp.address.subsystem_id, comp.address.node_id, comp.address.component_id))
                     twc.expandItem(node_item)
                     for srv in comp.services:
                         srv_item = QTreeWidgetItem(cmp_item)
@@ -266,8 +269,18 @@ class Robot(QObject):
     def update_ident(self, ident):
         if Address(ident.address) == Address(self._subsystem.ident.address):
             self._last_update = rospy.Time.now()
-            return True
+        if ident.system_type == 60001 or ident.request_type == 4:
+            if ident.address.subsystem_id == self._subsystem.ident.address.subsystem_id:
+                self._component_names[Address(ident.address)] = ident.name
         return False
+
+    def _get_component_name(self, msg_address):
+        addr = Address(msg_address)
+        try:
+            return self._component_names[addr]
+        except Exception:
+            pass
+        return "Component"
 
     def is_old(self):
         return rospy.Time.now() - self._last_update > rospy.Duration(self.MAX_AGE)
@@ -289,7 +302,7 @@ class Robot(QObject):
         ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'system_info.ui')
         loadUi(ui_file, diag)
         diag.treewidget_components.setHeaderLabel("%s [%d]" % (self.name, self.subsystem_id))
-        diag.resize(300, 250)
+        diag.resize(500, 300)
         diag.setWindowTitle("subsystem %s[%d]" % (self.name, self.subsystem_id))
         diag.setWindowIcon(QIcon.fromTheme("help-about"))
         return diag
