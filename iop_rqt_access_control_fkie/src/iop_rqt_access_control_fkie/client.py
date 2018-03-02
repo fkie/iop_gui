@@ -99,7 +99,7 @@ class Client(object):
         for services in self._ocu_nodes.values():
             for service_info in services:
                 address = Address(feedback.reporter)
-                if service_info.access_state in [4, 5]:  # see OcuServiceInfo for number
+                if service_info.access_state in [0, 4, 5]:  # see OcuServiceInfo for number
                     if address not in self._warnings:
                         self._warnings[address] = list()
                     self._warnings[address].append(service_info)
