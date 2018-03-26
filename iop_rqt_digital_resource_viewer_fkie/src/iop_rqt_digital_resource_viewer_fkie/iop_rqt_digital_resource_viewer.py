@@ -17,7 +17,7 @@
 # <http://www.gnu.de/documents/gpl-2.0.html>
 #
 
-from std_msgs.msg import UInt16
+from std_msgs.msg import UInt16, String
 from iop_msgs_fkie.msg import DigitalResourceEndpoints, VisualSensorNames
 from python_qt_binding import loadUi
 from python_qt_binding.QtCore import Signal, Qt
@@ -35,7 +35,11 @@ import rospy
 
 from .cam import Cam
 from .topic_info import TopicInfo
-import vlc
+try:
+    import vlc
+except Exception as e:
+    rospy.logwarn("%s\nIf you will use internal vlc player install:\n sudo apt install vlc-nox" % e)
+    vlc = None
 
 
 class DigitalResourceViewer(Plugin):
@@ -78,13 +82,16 @@ class DigitalResourceViewer(Plugin):
             self._widget.setWindowTitle(self._widget.windowTitle() + (' (%d)' % context.serial_number()))
         # Add widget to the user interface
         context.add_widget(self._widget)
+        self._use_vlc = True
         self.context = context
+        self._topic_video_url = rospy.names.ns_join(rospy.get_namespace(), 'current_video_url')
         self._topic_endpoints = rospy.names.ns_join(rospy.get_namespace(), 'digital_endpoints')
         self._topic_names = rospy.names.ns_join(rospy.get_namespace(), 'visual_sensor_names')
         self._topic_resource_id = rospy.names.ns_join(rospy.get_namespace(), 'dv_resource_id')
         self._subscriber_endpoints = None
         self._subscriber_names = None
         self._publisher_resource_id = None
+        self._publisher_current_video_url = None
         self._endpoints = None
         self._resource_names = {}
         self.signal_topic_endpoints.connect(self.signal_callback_endpoints)
@@ -102,7 +109,9 @@ class DigitalResourceViewer(Plugin):
         self._widget.videoFrame.setPalette(self.palette)
         self._widget.videoFrame.setAutoFillBackground(True)
         self._rtsp_over_tcp = ''
-        self._create_vlc_player()
+        self._widget.videoFrame.setVisible(self._use_vlc)
+        if self._use_vlc:
+            self._create_vlc_player()
 
     def show_info(self):
         if len(self._cam_list):
@@ -130,22 +139,27 @@ class DigitalResourceViewer(Plugin):
     def save_settings(self, plugin_settings, instance_settings):
         # save intrinsic configuration, usually using:
         # instance_settings.set_value(k, v)
+        instance_settings.set_value('topic_current_video_url', self._topic_video_url)
         instance_settings.set_value('topic_endpoints', self._topic_endpoints)
         instance_settings.set_value('topic_names', self._topic_names)
         instance_settings.set_value('topic_resource_id', self._topic_resource_id)
         instance_settings.set_value('rtps_over_tcp', self._rtsp_over_tcp)
+        instance_settings.set_value('use_internal_vlc', self._use_vlc)
 
     def restore_settings(self, plugin_settings, instance_settings):
         # restore intrinsic configuration, usually using:
         # v = instance_settings.value(k)
         self.shutdownRosComm()
+        self._topic_video_url = instance_settings.value('topic_current_video_url', rospy.names.ns_join(rospy.get_namespace(), 'current_video_url'))
         self._topic_endpoints = instance_settings.value('topic_endpoints', rospy.names.ns_join(rospy.get_namespace(), 'digital_endpoints'))
         self._topic_names = instance_settings.value('topic_names', rospy.names.ns_join(rospy.get_namespace(), 'visual_sensor_names'))
         self._topic_resource_id = instance_settings.value('topic_resource_id', rospy.names.ns_join(rospy.get_namespace(), 'dv_resource_id'))
         rtsp_over_tcp = instance_settings.value('rtps_over_tcp', self._rtsp_over_tcp)
+        self._use_vlc = instance_settings.value('use_internal_vlc', self._use_vlc)
         if rtsp_over_tcp != self._rtsp_over_tcp:
             self._rtsp_over_tcp = rtsp_over_tcp
-            self._create_vlc_player()
+            if self._use_vlc:
+                self._create_vlc_player()
         self.reinitRosComm()
 
     def reinitRosComm(self):
@@ -160,7 +174,11 @@ class DigitalResourceViewer(Plugin):
         if self._topic_resource_id:
             self._topic_resource_id = rosgraph.names.script_resolve_name('rostopic', self._topic_resource_id)
             if self._topic_resource_id:
-                self._publisher_resource_id = rospy.Publisher(self._topic_resource_id, UInt16, latch=True)
+                self._publisher_resource_id = rospy.Publisher(self._topic_resource_id, UInt16, latch=True, queue_size=3)
+        if self._topic_video_url:
+            self._topic_video_url = rosgraph.names.script_resolve_name('rostopic', self._topic_video_url)
+            if self._topic_video_url:
+                self._publisher_current_video_url = rospy.Publisher(self._topic_video_url, String, latch=True, queue_size=3)
 
     def shutdownRosComm(self):
         if self._subscriber_endpoints:
@@ -172,6 +190,9 @@ class DigitalResourceViewer(Plugin):
         if self._publisher_resource_id:
             self._publisher_resource_id.unregister()
             self._publisher_resource_id = None
+        if self._publisher_current_video_url:
+            self._publisher_current_video_url.unregister()
+            self._publisher_current_video_url = None
 
     def callback_endpoints(self, msg):
         self.signal_topic_endpoints.emit(msg)
@@ -226,10 +247,15 @@ class DigitalResourceViewer(Plugin):
                 ros_msg = UInt16()
                 ros_msg.data = resource_id
                 self._publisher_resource_id.publish(ros_msg)
-                self.media = self.vlc_instance.media_new(url)
-                # put the media in the media player
-                self.mediaplayer.set_media(self.media)
-                self.mediaplayer.play()
+                self._publisher_current_video_url.publish(url)
+                if self._use_vlc:
+                    self.media = self.vlc_instance.media_new(url)
+    #                self.media.add_option(":network-caching=0")
+    #                self.media.add_option(":clock-jitter=0")
+    #                self.media.add_option(":clock-synchro=0")
+                    # put the media in the media player
+                    self.mediaplayer.set_media(self.media)
+                    self.mediaplayer.play()
                 self._current_cam = self.sender()
         except rospy.ServiceException, e:
             print "Can not play the video: %s" % e
@@ -240,8 +266,10 @@ class DigitalResourceViewer(Plugin):
             ros_msg = UInt16()
             ros_msg.data = 65535
             self._publisher_resource_id.publish(ros_msg)
-            self.mediaplayer.stop()
+            if self._use_vlc:
+                self.mediaplayer.stop()
             self._current_cam = None
+            self._publisher_current_video_url.publish("")
 
     def stop_current(self):
         if self._current_cam is not None:
@@ -255,8 +283,10 @@ class DigitalResourceViewer(Plugin):
         ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'iop_rqt_digital_resource_viewer_config.ui')
         loadUi(ui_file, self.dialog_config)
         self.dialog_config.accepted.connect(self.on_dialog_config_accepted)
+        self.dialog_config.groupBoxUseInternalVlc.setChecked(self._use_vlc)
         # fill configuration dialog
         ti = TopicInfo()
+        ti.fill_subscribed_topics(self.dialog_config.comboBox_video_url_topic, "std_msgs/String", self._topic_video_url)
         ti.fill_published_topics(self.dialog_config.comboBox_endpoints_topic, "iop_msgs_fkie/DigitalResourceEndpoints", self._topic_endpoints)
         ti.fill_published_topics(self.dialog_config.comboBox_name_topic, "iop_msgs_fkie/VisualSensorNames", self._topic_names)
         ti.fill_subscribed_topics(self.dialog_config.comboBox_resource_topic, "std_msgs/UInt16", self._topic_resource_id)
@@ -268,13 +298,17 @@ class DigitalResourceViewer(Plugin):
 
     def on_dialog_config_accepted(self):
         self.shutdownRosComm()
+        self._topic_video_url = self.dialog_config.comboBox_video_url_topic.currentText()
         self._topic_endpoints = self.dialog_config.comboBox_endpoints_topic.currentText()
         self._topic_names = self.dialog_config.comboBox_name_topic.currentText()
         self._topic_resource_id = self.dialog_config.comboBox_resource_topic.currentText()
+        old_use_vlc = self._use_vlc
+        self._use_vlc = self.dialog_config.groupBoxUseInternalVlc.isChecked()
         rtsp_over_tcp = ''
+        self._widget.videoFrame.setVisible(self._use_vlc)
         if self.dialog_config.checkBoxRtspOverTcp.isChecked():
             rtsp_over_tcp = "--rtsp-tcp"
-        if self._rtsp_over_tcp != rtsp_over_tcp:
+        if self._rtsp_over_tcp != rtsp_over_tcp or old_use_vlc != self._use_vlc:
             self._rtsp_over_tcp = rtsp_over_tcp
             self._create_vlc_player()
         self.reinitRosComm()

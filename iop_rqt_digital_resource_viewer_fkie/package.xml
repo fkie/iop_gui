@@ -23,6 +23,7 @@
   <run_depend>std_msgs</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>rqt_gui</run_depend>
+  <run_depend>vlc-nox</run_depend>
 
   <!-- Depend on
    -->
