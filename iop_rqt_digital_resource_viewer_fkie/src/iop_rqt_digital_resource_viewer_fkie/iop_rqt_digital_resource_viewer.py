@@ -155,7 +155,9 @@ class DigitalResourceViewer(Plugin):
         self._topic_names = instance_settings.value('topic_names', rospy.names.ns_join(rospy.get_namespace(), 'visual_sensor_names'))
         self._topic_resource_id = instance_settings.value('topic_resource_id', rospy.names.ns_join(rospy.get_namespace(), 'dv_resource_id'))
         rtsp_over_tcp = instance_settings.value('rtps_over_tcp', self._rtsp_over_tcp)
-        self._use_vlc = instance_settings.value('use_internal_vlc', self._use_vlc)
+        val = instance_settings.value('use_internal_vlc', self._use_vlc)
+        self._use_vlc = val.lower() in ("yes", "true", "t", "1")
+        self._widget.videoFrame.setVisible(self._use_vlc)
         if rtsp_over_tcp != self._rtsp_over_tcp:
             self._rtsp_over_tcp = rtsp_over_tcp
             if self._use_vlc:
