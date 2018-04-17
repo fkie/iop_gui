@@ -156,7 +156,9 @@ class Settings(QObject):
         self.shutdownRosComm()
         self._authority = (int)(instance_settings.value('authority', 205))
         self._namespace = instance_settings.value('namespace', '/')
-        self._handoff_autorequest = (bool)(instance_settings.value('handoff_autorequest', False))
+        self._handoff_autorequest = instance_settings.value('handoff_autorequest', False)
+        if isinstance(self._handoff_autorequest, (str, unicode)):
+            self._handoff_autorequest = self._handoff_autorequest.lower() in ("yes", "true", "t", "1")
         self._handoff_explanation = instance_settings.value('handoff_explanation', 'autorequest')
         self._topic_system = instance_settings.value('iop_system', '/iop_system')
         self._service_update_discovery = instance_settings.value('iop_update_discovery', '/iop_update_discovery')
