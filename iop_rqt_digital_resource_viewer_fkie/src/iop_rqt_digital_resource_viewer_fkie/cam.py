@@ -28,7 +28,7 @@ except:
 class Cam(QPushButton):
 
     signal_play = Signal(str, int)
-    signal_stop = Signal(str)
+    signal_stop = Signal(str, int)
 
     def __init__(self, endpoint, name, parent=None):
         self._endpoint = endpoint
@@ -52,7 +52,7 @@ class Cam(QPushButton):
             self.signal_play.emit(self._endpoint.server_url, self._endpoint.resource_id)
             self.setStyleSheet("QPushButton { background-color: #98FB98;}")
         else:
-            self.signal_stop.emit(self._endpoint.server_url)
+            self.signal_stop.emit(self._endpoint.server_url, self._endpoint.resource_id)
             self.setStyleSheet("QPushButton { background-color: None;}")
 
     def update_name(self, name):
