@@ -280,7 +280,10 @@ class DigitalResourceViewer(Plugin):
                 ros_msg = UInt16()
                 ros_msg.data = resource_id
                 self._publisher_resource_id.publish(ros_msg)
-                self._publisher_current_video_url.publish(url)
+                for pub_topic in self._publisher_url_list:
+                  if resource_id == pub_topic[1]:
+                    pub_topic[0].publish(url)
+                #self._publisher_current_video_url.publish(url)
                 if self._use_vlc:
                     self.media = self.vlc_instance.media_new(url)
     #                self.media.add_option(":network-caching=0")
@@ -307,12 +310,15 @@ class DigitalResourceViewer(Plugin):
             if self._use_vlc:
                 self.mediaplayer.stop()
             self._current_cam = None
-            self._publisher_current_video_url.publish("")
+            for pub_topic in self._publisher_url_list:
+              if resource_id == pub_topic[1]:
+                pub_topic[0].publish("")
+            #self._publisher_current_video_url.publish("")
 
     def stop_current(self):
         if self._current_cam is not None:
             self._current_cam.set_played(False)
-            self.stop(self._current_cam.get_url())
+            self.stop(self._current_cam.get_url(),self._current_cam.get_resource_id())
             
     def callback_multi_urls(self):
       if self.dialog_config.checkboxUseMultiUrls.isChecked():
