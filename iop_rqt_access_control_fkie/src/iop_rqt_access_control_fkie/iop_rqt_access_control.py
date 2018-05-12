@@ -99,6 +99,15 @@ class AccessControlClient(Plugin):
 
     def _update_robot_timer(self, event):
         for robot in self._robotlist:
+            if robot.is_old():
+                robot.release_control()
+                cmd_release = OcuCmd()
+                cmd_entry1 = robot.state_to_cmd()
+                cmd_entry1.access_control = self.ACCESS_CONTROL_RELEASE
+                if robot.ocu_client is not None and not robot.ocu_client.is_restricted():
+                    robot.ocu_client = None
+                cmd_release.cmds.append(cmd_entry1)
+                self.settings.publish_cmd(cmd_release)
             robot.get_widget().setVisible(not robot.is_old())
 
     def signal_callback_subsystem(self, msg):
@@ -209,8 +218,9 @@ class AccessControlClient(Plugin):
                     cmd_release = OcuCmd()
                     cmd_entry1 = robot.state_to_cmd()
                     cmd_entry1.access_control = self.ACCESS_CONTROL_RELEASE
-                    if not robot.ocu_client.is_restricted():
-                        robot.ocu_client = None
+                    if robot.ocu_client is not None:
+                        if not robot.ocu_client.is_restricted():
+                            robot.ocu_client = None
                     cmd_release.cmds.append(cmd_entry1)
                     self.settings.publish_cmd(cmd_release)
         # set the ocu client for the new robot
