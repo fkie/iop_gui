@@ -37,7 +37,7 @@ from .handoff_dialog import HandoffDialog
 
 class Robot(QObject):
 
-    MAX_AGE = 60
+    MAX_AGE = 120
 
     control_activated = Signal(Address)
     control_deactivated = Signal(Address)
@@ -153,7 +153,7 @@ class Robot(QObject):
 
     def state_to_cmd(self):
         cmd = OcuCmdEntry()
-        cmd.authority = self._authority
+        cmd.authority = self._settings.authority
         cmd.name = self.name
         cmd.address.subsystem_id = self._subsystem.ident.address.subsystem_id
         if self._widget.button_control.isChecked():
