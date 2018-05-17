@@ -167,16 +167,16 @@ class DigitalResourceViewer(Plugin):
         if isinstance(self._use_vlc, (str, unicode)):
             self._use_vlc = self._use_vlc.lower() in ("yes", "true", "t", "1")
         if not self._use_multiple_urls:
-          self._widget.videoFrame.setVisible(self._use_vlc)
+            self._widget.videoFrame.setVisible(self._use_vlc)
         else:
-          self._widget.videoFrame.setVisible(False)  
+            self._widget.videoFrame.setVisible(False)  
         if rtsp_over_tcp != self._rtsp_over_tcp:
             self._rtsp_over_tcp = rtsp_over_tcp
             if not self._use_multiple_urls:
-              if self._use_vlc:
-                  self._create_vlc_player()
+                if self._use_vlc:
+                    self._create_vlc_player()
             else:
-              self._widget.videoFrame.setVisible(False)
+                self._widget.videoFrame.setVisible(False)
         self.reinitRosComm()
 
     def reinitRosComm(self):
@@ -217,15 +217,11 @@ class DigitalResourceViewer(Plugin):
         
     def create_video_url_publisher(self, msg):
         if self._topic_video_url:
-          i = 0
-          video_url = self._topic_video_url
-          while i < len(msg.endpoints):
-            if msg.endpoints[i].resource_id == 0:
-              self._publisher_url_list.append([rospy.Publisher(self._topic_video_url, String, latch=True, queue_size=3),0])
-            else:
-              self._publisher_url_list.append([rospy.Publisher(video_url + str(msg.endpoints[i].resource_id), String, latch=True, queue_size=3), (msg.endpoints[i].resource_id)])
-            i = i+1
-        
+            i = 1
+            video_url = self._topic_video_url
+            for enpoint in msg.endpoints:
+                self._publisher_url_list.append([rospy.Publisher(video_url + str(i), String, latch=True, queue_size=3), enpoint.resource_id])
+                i += 1
 
     def signal_callback_endpoints(self, msg):
         # update endpoints
@@ -269,50 +265,50 @@ class DigitalResourceViewer(Plugin):
 
     def play(self, url, resource_id):
         if self._use_multiple_urls:
-          for pub_topic in self._publisher_url_list:
-            if resource_id == pub_topic[1]:
-              pub_topic[0].publish(url)
-        else:
-          try:
-            print "play", url
-            self.stop_current()
-            if url:
-                ros_msg = UInt16()
-                ros_msg.data = resource_id
-                self._publisher_resource_id.publish(ros_msg)
-                for pub_topic in self._publisher_url_list:
-                  if resource_id == pub_topic[1]:
+            for pub_topic in self._publisher_url_list:
+                if resource_id == pub_topic[1]:
                     pub_topic[0].publish(url)
-                #self._publisher_current_video_url.publish(url)
-                if self._use_vlc:
-                    self.media = self.vlc_instance.media_new(url)
-    #                self.media.add_option(":network-caching=0")
-    #                self.media.add_option(":clock-jitter=0")
-    #                self.media.add_option(":clock-synchro=0")
-                    # put the media in the media player
-                    self.mediaplayer.set_media(self.media)
-                    self.mediaplayer.play()
-                self._current_cam = self.sender()
-          except rospy.ServiceException, e:
-              print "Can not play the video: %s" % e
+        else:
+            try:
+                print "play", url
+                self.stop_current()
+                if url:
+                    ros_msg = UInt16()
+                    ros_msg.data = resource_id
+                    self._publisher_resource_id.publish(ros_msg)
+                    for pub_topic in self._publisher_url_list:
+                        if resource_id == pub_topic[1]:
+                            pub_topic[0].publish(url)
+                    #self._publisher_current_video_url.publish(url)
+                    if self._use_vlc:
+                        self.media = self.vlc_instance.media_new(url)
+            #                self.media.add_option(":network-caching=0")
+            #                self.media.add_option(":clock-jitter=0")
+            #                self.media.add_option(":clock-synchro=0")
+                        # put the media in the media player
+                        self.mediaplayer.set_media(self.media)
+                        self.mediaplayer.play()
+                    self._current_cam = self.sender()
+            except rospy.ServiceException, e:
+                print "Can not play the video: %s" % e
 
     def stop(self, url, resource_id):
         if self._use_multiple_urls:
-          for pub_topic in self._publisher_url_list:
-            if resource_id == pub_topic[1]:
-              pub_topic[0].publish("")
-        else:
-          if self._current_cam.get_url() == url:
-            print "stop", url
-            ros_msg = UInt16()
-            ros_msg.data = 65535
-            self._publisher_resource_id.publish(ros_msg)
-            if self._use_vlc:
-                self.mediaplayer.stop()
-            self._current_cam = None
             for pub_topic in self._publisher_url_list:
-              if resource_id == pub_topic[1]:
-                pub_topic[0].publish("")
+                if resource_id == pub_topic[1]:
+                    pub_topic[0].publish("")
+        else:
+            if self._current_cam.get_url() == url:
+                print "stop", url
+                ros_msg = UInt16()
+                ros_msg.data = 65535
+                self._publisher_resource_id.publish(ros_msg)
+                if self._use_vlc:
+                    self.mediaplayer.stop()
+                self._current_cam = None
+                for pub_topic in self._publisher_url_list:
+                    if resource_id == pub_topic[1]:
+                        pub_topic[0].publish("")
             #self._publisher_current_video_url.publish("")
 
     def stop_current(self):
@@ -321,9 +317,8 @@ class DigitalResourceViewer(Plugin):
             self.stop(self._current_cam.get_url(),self._current_cam.get_resource_id())
             
     def callback_multi_urls(self):
-      if self.dialog_config.checkboxUseMultiUrls.isChecked():
-        print "test"
-        self.dialog_config.groupBoxUseInternalVlc.setEnabled(True)
+        if self.dialog_config.checkboxUseMultiUrls.isChecked():
+            self.dialog_config.groupBoxUseInternalVlc.setEnabled(True)
       
 
     def trigger_configuration(self):
@@ -358,9 +353,9 @@ class DigitalResourceViewer(Plugin):
         self._use_vlc = self.dialog_config.groupBoxUseInternalVlc.isChecked()
         old_use_vlc = self._use_vlc
         if not self._use_multiple_urls:
-          self._widget.videoFrame.setVisible(self._use_vlc)
+            self._widget.videoFrame.setVisible(self._use_vlc)
         else:
-          self._widget.videoFrame.setVisible(False)  
+            self._widget.videoFrame.setVisible(False)  
         rtsp_over_tcp = ''
         
         if self.dialog_config.checkBoxRtspOverTcp.isChecked():
@@ -368,7 +363,7 @@ class DigitalResourceViewer(Plugin):
         if self._rtsp_over_tcp != rtsp_over_tcp or old_use_vlc != self._use_vlc:
             self._rtsp_over_tcp = rtsp_over_tcp
             if not self._use_multiple_urls:
-              self._create_vlc_player()
+                self._create_vlc_player()
         self.reinitRosComm()
 
     def _create_vlc_player(self):
