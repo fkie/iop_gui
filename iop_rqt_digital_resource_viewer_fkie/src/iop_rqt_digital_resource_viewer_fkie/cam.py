@@ -47,6 +47,21 @@ class Cam(QPushButton):
         st = self.endpoint_type_as_str(self._endpoint.server_type)
         return "%s [%s - %d: %d.%d.%d]" % (self._endpoint.server_url, st, self._endpoint.resource_id, self._endpoint.address.subsystem_id, self._endpoint.address.node_id, self._endpoint.address.component_id)
 
+    def __eq__(self, other):
+        if isinstance(other, Cam):
+            return self.get_resource_id() == other.get_resource_id()
+	return False
+
+    def __gt__(self, other):
+        if isinstance(other, Cam):
+            return self.get_resource_id() > other.get_resource_id()
+	return False
+
+    def __lt__(self, other):
+        if isinstance(other, Cam):
+            return self.get_resource_id() < other.get_resource_id()
+	return False
+
     def _on_clicked(self, checked):
         if checked:
             self.signal_play.emit(self._endpoint.server_url, self._endpoint.resource_id)

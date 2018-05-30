@@ -248,20 +248,22 @@ class DigitalResourceViewer(Plugin):
         if self._cam_list:
             new_cam_list = []
             for cam in self._cam_list:
+                self._layout_buttons.removeWidget(cam)
                 if not cam.is_in(endpoints):
-                    self._layout_buttons.removeWidget(cam)
                     cam.setParent(None)
                 else:
                     new_cam_list.append(cam)
             self._cam_list = new_cam_list
-
         for endpoint in endpoints:
             new_cam = Cam(endpoint, self._get_resource_name(endpoint.resource_id))
             if not new_cam.is_in(self._cam_list):
                 new_cam.signal_play.connect(self.play)
                 new_cam.signal_stop.connect(self.stop)
-                self._layout_buttons.addWidget(new_cam)
                 self._cam_list.append(new_cam)
+	# (re)add all items in sorted order
+	self._cam_list.sort()
+	for cami in self._cam_list:
+                self._layout_buttons.addWidget(cami)
 
     def play(self, url, resource_id):
         if self._use_multiple_urls:
