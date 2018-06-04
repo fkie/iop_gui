@@ -217,11 +217,9 @@ class DigitalResourceViewer(Plugin):
         
     def create_video_url_publisher(self, msg):
         if self._topic_video_url:
-            i = 1
             video_url = self._topic_video_url
             for enpoint in msg.endpoints:
-                self._publisher_url_list.append([rospy.Publisher(video_url + str(i), String, latch=True, queue_size=3), enpoint.resource_id])
-                i += 1
+                self._publisher_url_list.append([rospy.Publisher(video_url + str(enpoint.resource_id), String, latch=True, queue_size=3), enpoint.resource_id])
 
     def signal_callback_endpoints(self, msg):
         # update endpoints
