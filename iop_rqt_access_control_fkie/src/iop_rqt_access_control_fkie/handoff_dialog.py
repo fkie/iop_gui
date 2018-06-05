@@ -63,10 +63,12 @@ class HandoffDialog(QDialog):
         self.button_request_handoff.clicked.connect(self.request_handoff)
         self.button_cancel_handoff.clicked.connect(self.cancel_handoff)
         self.button_close.clicked.connect(self.hide)
+        self.on_access = False;
         # emit a signal `button_blink` to emulate the blinking button
         self._blink_timer = rospy.Timer(rospy.Duration(self.BLINK_DURATION), self._update_blink_timer)
         self._blink_last_state = True
         self._blink_count_on = self.BLINK_ON_OFF_REL
+        self.frame_own_request.setEnabled(True)
 
     def __del__(self):
         self._blink_timer.stop()
@@ -78,7 +80,7 @@ class HandoffDialog(QDialog):
             if self.isVisible():
                 # do not blink if dialog is open
                 state = True
-            elif not self._on_request and not self._has_requests:
+            elif not self.on_access:
                 # the request was canceled and we have no active remote requests
                 state = False
             if (self._blink_count_on > 0):
@@ -96,30 +98,36 @@ class HandoffDialog(QDialog):
         '''
         Request button was clicked. Send a ROS message HandoffRequest.
         '''
+        addresses = set()
         for _addr, service_infos in self._insufficient_authority_warnings.items():
             for service_info in service_infos:
-                self.label_handoff_state.setText("%srequesting handoff for %s[%d]..." % (info_prefix, self.name, self.subsystem_id))
-                cmd = HandoffRequest()
-                cmd.request = True
-                cmd.authority_code = self._settings.authority
-                cmd.explanation = self.lineEdit_explanation.text()
-                cmd.component = Address(service_info.addr_control)
-                self._settings.publish_handoff_request(cmd)
+                addresses.add(Address(service_info.addr_control))
+        for addr in addresses:
+            self.label_handoff_state.setText("%srequesting handoff for %s[%d]..." % (info_prefix, self.name, self.subsystem_id))
+            cmd = HandoffRequest()
+            cmd.request = True
+            cmd.authority_code = self._settings.authority
+            cmd.explanation = self.lineEdit_explanation.text()
+            cmd.component = addr
+            self._settings.publish_handoff_request(cmd)
         self._on_request = True
 
     def cancel_handoff(self):
         '''
         Cancel button was clicked. Send a ROS message HandoffRequest.
         '''
+        addresses = set()
         for _addr, service_infos in self._insufficient_authority_warnings.items():
             for service_info in service_infos:
-                self.label_handoff_state.setText("request handoff for %s[%d] canceled" % (self.name, self.subsystem_id))
-                cmd = HandoffRequest()
-                cmd.request = False
-                cmd.authority_code = self._settings.authority
-                cmd.explanation = self.lineEdit_explanation.text()
-                cmd.component = Address(service_info.addr_control)
-                self._settings.publish_handoff_request(cmd)
+                addresses.add(Address(service_info.addr_control))
+        for addr in addresses:
+            self.label_handoff_state.setText("request handoff for %s[%d] canceled" % (self.name, self.subsystem_id))
+            cmd = HandoffRequest()
+            cmd.request = False
+            cmd.authority_code = self._settings.authority
+            cmd.explanation = self.lineEdit_explanation.text()
+            cmd.component = Address(service_info.addr_control)
+            self._settings.publish_handoff_request(cmd)
         self._on_request = False
 
     def handle_handoff_request(self, request):

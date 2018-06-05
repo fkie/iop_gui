@@ -116,10 +116,12 @@ class Robot(QObject):
         if checked:
             self._widget.button_view.setChecked(checked)
             self.control_activated.emit(addr)
+            self.handoff_dialog.on_access = True
         else:
             self.release_control()
             self.control_deactivated.emit(addr)
             self.handoff_dialog.cancel_handoff()
+            self.handoff_dialog.on_access = False
 #            if self.has_view():
 #                self.view_activated.emit(addr)
 
