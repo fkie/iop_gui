@@ -63,36 +63,46 @@ class HandoffDialog(QDialog):
         self.button_request_handoff.clicked.connect(self.request_handoff)
         self.button_cancel_handoff.clicked.connect(self.cancel_handoff)
         self.button_close.clicked.connect(self.hide)
-        self.on_access = False;
+        self._client = None
+        self.on_access = False
         # emit a signal `button_blink` to emulate the blinking button
         self._blink_timer = rospy.Timer(rospy.Duration(self.BLINK_DURATION), self._update_blink_timer)
         self._blink_last_state = True
         self._blink_count_on = self.BLINK_ON_OFF_REL
         self.frame_own_request.setEnabled(True)
 
-    def __del__(self):
-        self._blink_timer.stop()
+    def shutdown(self):
+        self._blink_timer.shutdown()
+        del self._handoff_requests[:]
+        self._insufficient_authority_warnings.clear()
+        self._client = None
 
     def _update_blink_timer(self, event):
-        needs = self._has_insufficient_authority or self._has_requests
-        state = self._blink_count_on > 0
-        if (needs):
-            if self.isVisible():
-                # do not blink if dialog is open
-                state = True
-            elif not self.on_access:
-                # the request was canceled and we have no active remote requests
-                state = False
-            if (self._blink_count_on > 0):
-                self._blink_count_on -= 1
+        try:
+            needs = self._has_insufficient_authority or self._has_requests
+            state = self._blink_count_on > 0
+            if (needs):
+                if self.isVisible():
+                    # do not blink if dialog is open
+                    state = True
+                elif not self.on_access:
+                    # the request was canceled and we have no active remote requests
+                    state = False
+                if (self._blink_count_on > 0):
+                    self._blink_count_on -= 1
+                else:
+                    self._blink_count_on = self.BLINK_ON_OFF_REL
             else:
                 self._blink_count_on = self.BLINK_ON_OFF_REL
-        else:
-            self._blink_count_on = self.BLINK_ON_OFF_REL
-            state = False
-        if state != self._blink_last_state:
-            self._blink_last_state = state
-            self.button_blink.emit(state)
+                state = False
+            if state != self._blink_last_state:
+                self._blink_last_state = state
+                self.button_blink.emit(state)
+        except Exception as e:
+            print "update_blink_timer:", e
+
+    def set_client(self, client):
+        self._client = client
 
     def request_handoff(self, state=False, info_prefix=''):
         '''
@@ -109,7 +119,8 @@ class HandoffDialog(QDialog):
             cmd.authority_code = self._settings.authority
             cmd.explanation = self.lineEdit_explanation.text()
             cmd.component = addr
-            self._settings.publish_handoff_request(cmd)
+            if self._client is not None:
+                self._client.publish_handoff_request(cmd)
         self._on_request = True
 
     def cancel_handoff(self):
@@ -127,7 +138,8 @@ class HandoffDialog(QDialog):
             cmd.authority_code = self._settings.authority
             cmd.explanation = self.lineEdit_explanation.text()
             cmd.component = Address(service_info.addr_control)
-            self._settings.publish_handoff_request(cmd)
+            if self._client is not None:
+                self._client.publish_handoff_request(cmd)
         self._on_request = False
 
     def handle_handoff_request(self, request):
@@ -150,7 +162,8 @@ class HandoffDialog(QDialog):
     def _on_handoff_own_response(self, response):
         if response.code != 0:
             pass
-        self._settings.publish_handoff_response(response)
+        if self._client is not None:
+            self._client.publish_handoff_response(response)
 
     def _update_visible_requests(self, state=False):
         for hrw in self._handoff_requests:

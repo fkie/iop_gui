@@ -71,6 +71,17 @@ class Robot(QObject):
         self._widget.button_warnings.clicked.connect(self.on_show_warnings)
         self._widget.button_details.clicked.connect(self.on_show_details)
 
+    def __del__(self):
+        self.handoff_dialog.setParent(None)
+        self.handoff_dialog.shutdown()
+        self.handoff_dialog = None
+        self._detailed_dialog = None
+        self._warning_dialog = None
+        self._ocu_client = None
+        self._feedback_warnings.clear()
+        self._component_names.clear()
+        del self._warnings[:]
+
     @property
     def name(self):
         return self._subsystem.ident.name
@@ -94,8 +105,15 @@ class Robot(QObject):
             self._ocu_client.control_subsystem = self.subsystem_id
             if ocu_client.subsystem_restricted == self.subsystem_id:
                 self._widget.button_control.setEnabled(not ocu_client.only_monitor)
+            self.handoff_dialog.set_client(self._ocu_client)
+            self.update_feedback_warnings()
         elif self.has_view() or self.has_control():
             self.set_warnings(["No free OCU client available!", "Start an ocu_client with different nodeID to be able to listen for sensors on second robot."])
+            self.handoff_dialog.set_client(None)
+        if self._ocu_client is not None:
+            self._widget.button_handoff.setVisible(self._ocu_client.has_handoff_publisher())
+        else:
+            self._widget.button_handoff.setVisible(True)
 
     @property
     def ocu_client_restricted(self):
@@ -166,6 +184,8 @@ class Robot(QObject):
             cmd.access_control = 10
         if self.ocu_client is not None:
             cmd.ocu_client = self.ocu_client.address
+        else:
+            cmd.ocu_client.subsystem_id = 65535
         return cmd
 
     def update(self, subsystem):
@@ -239,10 +259,21 @@ class Robot(QObject):
                         text_browser.append("    %s[%s]: %s" % (service_info.uri, Address(service_info.addr_control), self.access_state_to_str(service_info.access_state)))
         self._warning_dialog.show()
 
-    def set_feedback_warnings(self, warnings):
+    def update_feedback_warnings(self):
         '''
         :type warnigns: dict(Address of the ocu client: ServiceInfo)
         '''
+        # get all warnings for each subsystem
+        warnings = dict()
+        if self._ocu_client is not None:
+            cw = self._ocu_client.get_warnings(self.subsystem_id, self.has_control())
+            warnings.update(cw)
+            # get insufficient authority reports to update handoff state button
+            insathority = dict()
+            cw = self._ocu_client.get_srvs_ins_authority(self.subsystem_id)
+            insathority.update(cw)
+            # update insufficient authority to activate handoff dialog
+            self.handoff_dialog.update_authority_problems(insathority)
         self._feedback_warnings = warnings
         self._update_warnings_button()
 

@@ -26,10 +26,11 @@ except:
     from python_qt_binding.QtWidgets import QComboBox, QDialog
 
 import os
+import roslib.names
 import rospy
 import time
 from std_srvs.srv import Empty
-from iop_msgs_fkie.msg import Identification, OcuFeedback, System, OcuCmd, HandoffRequest, HandoffResponse
+from iop_msgs_fkie.msg import Identification, OcuFeedback, System, OcuCmd
 from .topic_info import TopicInfo
 
 
@@ -38,10 +39,8 @@ class Settings(QObject):
     Provides a configuration dialog and topic management.
     '''
     signal_system = Signal(System)
-    signal_feedback = Signal(OcuFeedback)
+    signal_feedback = Signal(OcuFeedback, str)
     signal_ident = Signal(Identification)
-    signal_handoff_request = Signal(HandoffRequest)
-    signal_handoff_response = Signal(HandoffResponse)
 
     def __init__(self):
         QObject.__init__(self)
@@ -57,10 +56,6 @@ class Settings(QObject):
         self._topic_identification = '/iop_identification'
         self._topic_cmd = '/ocu_cmd'
         self._topic_feedback = '/ocu_feedback'
-        self._topic_handoff_own_request = '/handoff_own_request'
-        self._topic_handoff_own_response = '/handoff_own_response'
-        self._topic_handoff_remote_request = '/handoff_remote_request'
-        self._topic_handoff_remote_response = '/handoff_remote_response'
         self._authority = 205
         self._namespace = '/'
         self._handoff_autorequest = False
@@ -70,10 +65,6 @@ class Settings(QObject):
         self._sub_feedback = None
         self._sub_ident = None
         self._sub_system = None
-        self._pub_handoff_own_request = None
-        self._pub_handoff_own_response = None
-        self._sub_handoff_remote_request = None
-        self._sub_handoff_remote_response = None
 
     @property
     def authority(self):
@@ -92,30 +83,20 @@ class Settings(QObject):
         if self._pub_cmd is not None and not rospy.is_shutdown():
             self._pub_cmd.publish(cmd)
 
-    def publish_handoff_request(self, msg):
-        time.sleep(0.1)
-        if self._pub_handoff_own_request is not None and not rospy.is_shutdown():
-            self._pub_handoff_own_request.publish(msg)
-
-    def publish_handoff_response(self, msg):
-        time.sleep(0.1)
-        if self._pub_handoff_own_response is not None and not rospy.is_shutdown():
-            self._pub_handoff_own_response.publish(msg)
-
     def _callback_ocu_feedback(self, control_feedback):
-        self.signal_feedback.emit(control_feedback)
+        ns = '/'
+        try:
+            caller = control_feedback._connection_header['callerid']
+            ns = roslib.names.namespace(caller)
+        except Exception:
+            pass
+        self.signal_feedback.emit(control_feedback, ns)
 
     def _callback_ocu_ident(self, ident):
         self.signal_ident.emit(ident)
 
     def _callback_system(self, msg):
         self.signal_system.emit(msg)
-
-    def _callback_handoff_remote_request(self, msg):
-        self.signal_handoff_request.emit(msg)
-
-    def _callback_handoff_remote_response(self, msg):
-        self.signal_handoff_response.emit(msg)
 
     def update_discovery(self):
         '''
@@ -143,11 +124,6 @@ class Settings(QObject):
         instance_settings.set_value('ocu_cmd', self._topic_cmd)
         instance_settings.set_value('ocu_feedback', self._topic_feedback)
 
-        instance_settings.set_value('topic_handoff_own_request', self._topic_handoff_own_request)
-        instance_settings.set_value('topic_handoff_own_response', self._topic_handoff_own_response)
-        instance_settings.set_value('topic_handoff_remote_request', self._topic_handoff_remote_request)
-        instance_settings.set_value('topic_handoff_remote_response', self._topic_handoff_remote_response)
-
     def restore_settings(self, plugin_settings, instance_settings):
 
         # TODO restore intrinsic configuration, usually using:
@@ -165,11 +141,6 @@ class Settings(QObject):
         self._topic_identification = instance_settings.value('iop_identification', '/iop_identification')
         self._topic_cmd = instance_settings.value('ocu_cmd', '/ocu_cmd')
         self._topic_feedback = instance_settings.value('ocu_feedback', '/ocu_feedback')
-        self._topic_handoff_own_request = instance_settings.value('topic_handoff_own_request', '/handoff_own_request')
-        self._topic_handoff_own_response = instance_settings.value('topic_handoff_own_response', '/handoff_own_response')
-        self._topic_handoff_remote_request = instance_settings.value('topic_handoff_remote_request', '/handoff_remote_request')
-        self._topic_handoff_remote_response = instance_settings.value('topic_handoff_remote_response', '/handoff_remote_response')
-
         self.reinitRosComm()
 
     def trigger_configuration(self):
@@ -197,10 +168,6 @@ class Settings(QObject):
         ti.fill_published_topics(self.dialog_config.comboBox_identification_topic, "iop_msgs_fkie/Identification", self._topic_identification)
         ti.fill_published_topics(self.dialog_config.comboBox_cmd_topic, "iop_msgs_fkie/OcuCmd", self._topic_cmd)
         ti.fill_published_topics(self.dialog_config.comboBox_feedback_topic, "iop_msgs_fkie/OcuFeedback", self._topic_feedback)
-        ti.fill_subscribed_topics(self.dialog_config.comboBox_handoff_own_request_topic, "iop_msgs_fkie/HandoffRequest", self._topic_handoff_own_request)
-        ti.fill_subscribed_topics(self.dialog_config.comboBox_handoff_own_response_topic, "iop_msgs_fkie/HandoffResponse", self._topic_handoff_own_response)
-        ti.fill_published_topics(self.dialog_config.comboBox_handoff_remote_request_topic, "iop_msgs_fkie/HandoffRequest", self._topic_handoff_remote_request)
-        ti.fill_published_topics(self.dialog_config.comboBox_handoff_remote_response_topic, "iop_msgs_fkie/HandoffResponse", self._topic_handoff_remote_response)
         # stop on cancel pressed
         if not self.dialog_config.exec_():
             return
@@ -222,14 +189,6 @@ class Settings(QObject):
             self.dialog_config.comboBox_cmd_topic.setCurrentText(newname)
             newname = self._replace_namespace(self._topic_feedback, self._current_namespace)
             self.dialog_config.comboBox_feedback_topic.setCurrentText(newname)
-            newname = self._replace_namespace(self._topic_handoff_own_request, self._current_namespace)
-            self.dialog_config.comboBox_handoff_own_request_topic.setCurrentText(newname)
-            newname = self._replace_namespace(self._topic_handoff_own_response, self._current_namespace)
-            self.dialog_config.comboBox_handoff_own_response_topic.setCurrentText(newname)
-            newname = self._replace_namespace(self._topic_handoff_remote_request, self._current_namespace)
-            self.dialog_config.comboBox_handoff_remote_request_topic.setCurrentText(newname)
-            newname = self._replace_namespace(self._topic_handoff_remote_response, self._current_namespace)
-            self.dialog_config.comboBox_handoff_remote_response_topic.setCurrentText(newname)
 
     def _replace_namespace(self, topic, newns):
         return rospy.names.ns_join(newns, topic.split(rospy.names.SEP)[-1])
@@ -246,10 +205,6 @@ class Settings(QObject):
         self._topic_identification = self.dialog_config.comboBox_identification_topic.currentText()
         self._topic_cmd = self.dialog_config.comboBox_cmd_topic.currentText()
         self._topic_feedback = self.dialog_config.comboBox_feedback_topic.currentText()
-        self._topic_handoff_own_request = self.dialog_config.comboBox_handoff_own_request_topic.currentText()
-        self._topic_handoff_own_response = self.dialog_config.comboBox_handoff_own_response_topic.currentText()
-        self._topic_handoff_remote_request = self.dialog_config.comboBox_handoff_remote_request_topic.currentText()
-        self._topic_handoff_remote_response = self.dialog_config.comboBox_handoff_remote_response_topic.currentText()
         self.reinitRosComm()
 
     def reinitRosComm(self):
@@ -263,14 +218,6 @@ class Settings(QObject):
             self._sub_feedback = rospy.Subscriber(self._topic_feedback, OcuFeedback, self._callback_ocu_feedback, queue_size=10)
         if self._sub_ident is None:
             self._sub_ident = rospy.Subscriber(self._topic_identification, Identification, self._callback_ocu_ident, queue_size=10)
-        if self._pub_handoff_own_request is None:
-            self._pub_handoff_own_request = rospy.Publisher(self._topic_handoff_own_request, HandoffRequest, queue_size=10)
-        if self._pub_handoff_own_response is None:
-            self._pub_handoff_own_response = rospy.Publisher(self._topic_handoff_own_response, HandoffResponse, queue_size=10)
-        if self._sub_handoff_remote_request is None:
-            self._sub_handoff_remote_request = rospy.Subscriber(self._topic_handoff_remote_request, HandoffRequest, self._callback_handoff_remote_request, queue_size=10)
-        if self._sub_handoff_remote_response is None:
-            self._sub_handoff_remote_response = rospy.Subscriber(self._topic_handoff_remote_response, HandoffResponse, self._callback_handoff_remote_response, queue_size=10)
 
     def shutdownRosComm(self):
         if self._sub_system is not None:
@@ -285,15 +232,3 @@ class Settings(QObject):
         if self._pub_cmd is not None:
             self._pub_cmd.unregister()
             self._pub_cmd = None
-        if self._pub_handoff_own_request is not None:
-            self._pub_handoff_own_request.unregister()
-            self._pub_handoff_own_request = None
-        if self._pub_handoff_own_response is not None:
-            self._pub_handoff_own_response.unregister()
-            self._pub_handoff_own_response = None
-        if self._sub_handoff_remote_request is not None:
-            self._sub_handoff_remote_request.unregister()
-            self._sub_handoff_remote_request = None
-        if self._sub_handoff_remote_response is not None:
-            self._sub_handoff_remote_response.unregister()
-            self._sub_handoff_remote_response = None

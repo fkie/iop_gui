@@ -64,7 +64,6 @@ class AccessControlClient(Plugin):
         self.subsystems = None
         self.subsystem_name = None
         self._control_client = None  # current control client
-        self._view_clients = dict()
         # Get path to UI file which is a sibling of this file
         # in this example the .ui and .py file are in the same folder
         # ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'MyPlugin.ui')
@@ -92,8 +91,6 @@ class AccessControlClient(Plugin):
         self.settings.signal_system.connect(self.signal_callback_subsystem)
         self.settings.signal_feedback.connect(self.signal_callback_feedback)
         self.settings.signal_ident.connect(self.signal_callback_ident)
-        self.settings.signal_handoff_request.connect(self.signal_handoff_request)
-        self.settings.signal_handoff_response.connect(self.signal_handoff_response)
         rospy.on_shutdown(self.on_ros_shutdown)
         self._update_timer = rospy.Timer(rospy.Duration(5), self._update_robot_timer)
 
@@ -141,7 +138,7 @@ class AccessControlClient(Plugin):
                 if not added:
                     self._widget.layout_robots.addWidget(robot.get_widget())
 
-    def signal_callback_feedback(self, control_feedback):
+    def signal_callback_feedback(self, control_feedback, caller_ns):
         '''
         apply feedback to the clients
         '''
@@ -152,30 +149,20 @@ class AccessControlClient(Plugin):
             index = self._clients.index(caddr)
             client = self._clients[index]
         except ValueError:
-            client = Client(caddr.subsystem_id, caddr.node_id)
+            client = Client(caddr.subsystem_id, caddr.node_id, caller_ns)
+            client.signal_handoff_request.connect(self.signal_handoff_request)
+            client.signal_handoff_response.connect(self.signal_handoff_response)
             self._clients.append(client)
             self._clients.sort()
         client.apply(control_feedback)
+#         # set client if it is restricted to this robot
+#         for client in self._clients:
+#             if robot.subsystem_id == client.subsystem_restricted:
+#                 if robot.ocu_client is None:
+#                     robot.ocu_client = client
         # handle feedback of OCU clients
         for robot in self._robotlist:
-            # get all warnings for each subsystem
-            warnings = dict()
-            for client in self._clients:
-                cw = client.get_warnings(robot.subsystem_id, robot.has_control())
-                warnings.update(cw)
-            # get insufficient authority reports to update handoff state button
-            insathority = dict()
-            for client in self._clients:
-                cw = client.get_srvs_ins_authority(robot.subsystem_id)
-                insathority.update(cw)
-            # set client if it is restricted to this robot
-            for client in self._clients:
-                if robot.subsystem_id == client.subsystem_restricted:
-                    if robot.ocu_client is None:
-                        robot.ocu_client = client
-            robot.set_feedback_warnings(warnings)
-            # update insufficient authority to activate handoff dialog
-            robot.handoff_dialog.update_authority_problems(insathority)
+            robot.update_feedback_warnings()
 
     def signal_callback_ident(self, ident):
         # update robot alive
@@ -353,8 +340,12 @@ class AccessControlClient(Plugin):
         # send access release?
         self._update_timer.shutdown()
         self.release_all()
+        del self._robotlist[:]
+        self._control_client = None
+        for client in self._clients:
+            client.shutdown()
+        del self._clients[:]
         self.settings.shutdownRosComm()
-        time.sleep(1)
 
     def save_settings(self, plugin_settings, instance_settings):
         self.settings.save_settings(plugin_settings, instance_settings)

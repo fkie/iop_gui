@@ -18,23 +18,28 @@
 #
 # :author: Alexander Tiderko
 
-from iop_msgs_fkie.msg import OcuFeedback, JausAddress
+from iop_msgs_fkie.msg import HandoffRequest, HandoffResponse, OcuFeedback, JausAddress
+from python_qt_binding.QtCore import QObject, Signal
 
 from .address import Address
+import rospy
 
 
-class Client(object):
+class Client(QObject):
 
     '''
     Client is a group of nodes with equal subsystem and node id.
     If one of the services is specified to monitor only, all clients are set to monitor only mode.
     If for one of the services is controlled_susystem is set it will be applied to all clients of the group.
     '''
+    signal_handoff_request = Signal(HandoffRequest)
+    signal_handoff_response = Signal(HandoffResponse)
 
-    def __init__(self, subsystem_id, node_id):
+    def __init__(self, subsystem_id, node_id, caller_ns):
         '''
-        :type jaus_address: iop_msgs_fkie/JausMessage
+        :param caller_ns: the namespace of the client used to create handoff topics
         '''
+        QObject.__init__(self)
         jaus_address = JausAddress(subsystem_id, node_id, 0)
         self._address = Address(jaus_address)
         self._subsystem_restricted = 65535
@@ -45,6 +50,23 @@ class Client(object):
         self._has_control_access = False
         self.handoff_supported = True
         self.control_subsystem = -1  # this value is set by robot.py
+        self._topic_handoff_own_request = '%shandoff_own_request' % caller_ns
+        self._topic_handoff_own_response = '%shandoff_own_response' % caller_ns
+        self._topic_handoff_remote_request = '%shandoff_remote_request' % caller_ns
+        self._topic_handoff_remote_response = '%shandoff_remote_response' % caller_ns
+        self._pub_handoff_own_request = rospy.Publisher(self._topic_handoff_own_request, HandoffRequest, queue_size=10)
+        self._pub_handoff_own_response = rospy.Publisher(self._topic_handoff_own_response, HandoffResponse, queue_size=10)
+        self._sub_handoff_remote_request = rospy.Subscriber(self._topic_handoff_remote_request, HandoffRequest, self._callback_handoff_remote_request, queue_size=10)
+        self._sub_handoff_remote_response = rospy.Subscriber(self._topic_handoff_remote_response, HandoffResponse, self._callback_handoff_remote_response, queue_size=10)
+
+    def shutdown(self):
+        self._pub_handoff_own_request.unregister()
+        self._pub_handoff_own_response.unregister()
+        self._sub_handoff_remote_request.unregister()
+        self._sub_handoff_remote_response.unregister()
+        self._ocu_nodes.clear()
+        self._warnings.clear()
+        self._ins_autorithy.clear()
 
     @property
     def address(self):
@@ -77,13 +99,33 @@ class Client(object):
     def is_restricted(self):
         return self.subsystem_restricted not in [0, 65535]
 
+    def has_handoff_publisher(self):
+        return self._sub_handoff_remote_request.get_num_connections() > 0 and self._pub_handoff_own_request.get_num_connections() > 0
+
+    def publish_handoff_request(self, msg):
+        # time.sleep(0.1)
+        if self._pub_handoff_own_request is not None and not rospy.is_shutdown():
+            self._pub_handoff_own_request.publish(msg)
+
+    def publish_handoff_response(self, msg):
+        # time.sleep(0.1)
+        if self._pub_handoff_own_response is not None and not rospy.is_shutdown():
+            self._pub_handoff_own_response.publish(msg)
+
+    def _callback_handoff_remote_request(self, msg):
+        self.signal_handoff_request.emit(msg)
+
+    def _callback_handoff_remote_response(self, msg):
+        self.signal_handoff_response.emit(msg)
+
     def apply(self, feedback):
         '''
         :type jaus_address: iop_msgs_fkie/OcuFeedback
         '''
         if not isinstance(feedback, OcuFeedback):
             raise TypeError("Client.apply() expects iop_msgs_fkie/OcuFeedback, got %s" % type(feedback))
-        if self != feedback.reporter:
+        jaus_address = JausAddress(feedback.reporter.subsystem_id, feedback.reporter.node_id, 0)
+        if self._address != Address(jaus_address):
             return False
         # change the controlled subsystem only once to avoid glint
         if self._subsystem_restricted == 65535:
