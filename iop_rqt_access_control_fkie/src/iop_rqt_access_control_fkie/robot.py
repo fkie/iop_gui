@@ -62,7 +62,7 @@ class Robot(QObject):
         self.handoff_dialog = HandoffDialog(self.name, self.subsystem_id, self._settings, self._widget)
         self.handoff_dialog.button_blink.connect(self._widget.button_handoff.setEnabled)
         self._widget.button_view.clicked.connect(self._on_robot_view)
-        self._widget.button_control.setText(subsystem.ident.name)
+        self._widget.button_control.setText("%s - %d" % (subsystem.ident.name, self._subsystem.ident.address.subsystem_id))
         self._widget.button_control.clicked.connect(self._on_robot_control)
         self._widget.button_control.setObjectName(subsystem.ident.name)
         self._widget.button_handoff.setEnabled(False)
