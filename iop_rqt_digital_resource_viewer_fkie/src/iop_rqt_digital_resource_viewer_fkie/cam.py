@@ -18,6 +18,7 @@
 #
 
 from python_qt_binding.QtCore import Qt, Signal
+from bzrlib.transport.http._urllib2_wrappers import checked_kerberos
 
 try:
     from python_qt_binding.QtGui import QPushButton
@@ -41,7 +42,8 @@ class Cam(QPushButton):
         self.setFocusPolicy(Qt.NoFocus)
         self.setFixedHeight(24)
 #        self.setFixedSize(57, 24)
-        self.clicked.connect(self._on_clicked)
+        self.toggled.connect(self._on_toggled)
+        self._ignore_next_click = False
 
     def __repr__(self):
         st = self.endpoint_type_as_str(self._endpoint.server_type)
@@ -50,25 +52,33 @@ class Cam(QPushButton):
     def __eq__(self, other):
         if isinstance(other, Cam):
             return self.get_resource_id() == other.get_resource_id()
-	return False
+        return False
 
     def __gt__(self, other):
         if isinstance(other, Cam):
             return self.get_resource_id() > other.get_resource_id()
-	return False
+        return False
 
     def __lt__(self, other):
         if isinstance(other, Cam):
             return self.get_resource_id() < other.get_resource_id()
-	return False
+        return False
 
-    def _on_clicked(self, checked):
+    def _on_toggled(self, checked):
         if checked:
-            self.signal_play.emit(self._endpoint.server_url, self._endpoint.resource_id)
+            if not self._ignore_next_click:
+                self.signal_play.emit(self._endpoint.server_url, self._endpoint.resource_id)
             self.setStyleSheet("QPushButton { background-color: #98FB98;}")
         else:
-            self.signal_stop.emit(self._endpoint.server_url, self._endpoint.resource_id)
+            if not self._ignore_next_click:
+                self.signal_stop.emit(self._endpoint.server_url, self._endpoint.resource_id)
             self.setStyleSheet("QPushButton { background-color: None;}")
+        self._ignore_next_click = False
+
+    def set_silent_unchecked(self, ignore_id):
+        if self.isChecked() and ignore_id != self.get_resource_id():
+            self._ignore_next_click = True
+            self.setChecked(False)
 
     def update_name(self, name):
         self._name = name
