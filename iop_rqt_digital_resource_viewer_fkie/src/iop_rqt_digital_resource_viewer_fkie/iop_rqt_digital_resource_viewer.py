@@ -94,6 +94,7 @@ class DigitalResourceViewer(Plugin):
         self._subscriber_names = None
         self._publisher_resource_id = None
         self._publisher_current_video_url = None
+        self._publisher_played_urls = []
         self._endpoints = None
         self._resource_names = {}
         self.signal_topic_endpoints.connect(self.signal_callback_endpoints)
@@ -252,6 +253,8 @@ class DigitalResourceViewer(Plugin):
                 new_cam.signal_play.connect(self.play)
                 new_cam.signal_stop.connect(self.stop)
                 self._cam_list.append(new_cam)
+                if new_cam.get_url() in self._publisher_played_urls:
+                    new_cam.set_played(True)
         # (re)add all items in sorted order
         self._cam_list.sort()
         for cami in self._cam_list:
@@ -283,6 +286,7 @@ class DigitalResourceViewer(Plugin):
             rospy.logwarn("Can not play url %s: %s" % (url, e))
         if url and url in self._publisher:
             self._publisher[url].publish(url)
+            self._publisher_played_urls.append(url)
             ros_msg = UInt16()
             ros_msg.data = resource_id
             self._publisher_resource_id.publish(ros_msg)
@@ -300,6 +304,7 @@ class DigitalResourceViewer(Plugin):
             ros_msg.data = 65535
             self._publisher_resource_id.publish(ros_msg)
             self._publisher[url].publish("")
+            self._publisher_played_urls.remove(url)
         else:
             rospy.logwarn("Publisher for URI: '%s' while stop not found!" % url)
 
