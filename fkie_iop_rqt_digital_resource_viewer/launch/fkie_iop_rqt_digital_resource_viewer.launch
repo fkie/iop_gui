@@ -1,0 +1,5 @@
+<launch>
+  <node respawn="false" pkg="fkie_iop_rqt_digital_resource_viewer" type="iop_rqt_digital_resource_viewer" name="iop_rqt_digital_resource_viewer" >
+    <param name="capability_group" value="control"/>
+  </node>
+</launch> 

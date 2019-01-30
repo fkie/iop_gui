@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<package>
+  <name>fkie_iop_rqt_digital_resource_viewer</name>
+  <version>1.0.0</version>
+  <description>Shows the RTSP stream discovered for IOP complient robot.</description>
+
+  <maintainer email="alexander.tiderko@fkie.fraunhofer.de">Alexander Tiderko</maintainer>
+
+  <license>GPLv2</license>
+
+  <url type="website">https://github.com/fkie/iop_gui</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>python_qt_binding</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>fkie_iop_msgs</build_depend>
+  <build_depend>fkie_iop_ocu_slavelib</build_depend>
+
+  <run_depend>libvlc</run_depend>
+  <run_depend>python_qt_binding</run_depend>
+  <run_depend>fkie_iop_msgs</run_depend>
+  <run_depend>fkie_iop_ocu_slavelib</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>rospy</run_depend>
+  <run_depend>rqt_gui</run_depend>
+  <!--  <run_depend>vlc-nox</run_depend> -->
+
+  <!-- Depend on
+   -->
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <rqt_gui plugin="${prefix}/plugin.xml"/>
+  </export>
+</package>

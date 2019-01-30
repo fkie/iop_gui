@@ -1,0 +1,18 @@
+<library path="src">
+  <class name="VelocityControl" type="fkie_iop_rqt_velocity.iop_rqt_velocity.VelocityControl" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      A Python GUI plugin for the manipulator by velocity.
+    </description>
+    <qtgui>
+      <label>Velocity Control</label>
+      <icon type="theme">applications-other</icon>
+      <statustip>A Python GUI plugin for the manipulator by velocity.</statustip>
+      <group>
+        <label>FKIE</label>
+        <group>
+          <label>IOP</label>
+        </group>
+      </group>
+    </qtgui>
+  </class>
+</library> 

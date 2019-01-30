@@ -1,5 +1,0 @@
-<launch>
-  <node respawn="false" pkg="iop_rqt_access_control_fkie" type="iop_rqt_access_control" name="iop_rqt_access_control" >
-    <param name="capability_group" value="control"/>
-  </node>
-</launch> 
