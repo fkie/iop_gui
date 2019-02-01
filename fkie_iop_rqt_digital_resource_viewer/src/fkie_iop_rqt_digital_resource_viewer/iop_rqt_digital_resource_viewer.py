@@ -24,7 +24,7 @@ from python_qt_binding.QtCore import Signal, Qt
 from python_qt_binding.QtGui import QIcon, QPalette, QColor
 try:
     from python_qt_binding.QtGui import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDialog, QMessageBox
-except:
+except Exception:
     from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDialog, QMessageBox
 
 from qt_gui.plugin import Plugin
@@ -271,15 +271,18 @@ class DigitalResourceViewer(Plugin):
                 cami.set_silent_unchecked(resource_id)
         try:
             if url:
-                if self._use_vlc and self._current_cam is not None:
-                    if self._current_cam.get_url() != url:
-                        self.stop_current(url)
+                if self._use_vlc:
+                    if self._current_cam is not None:
+                        if self._current_cam.get_url() != url:
+                            self.stop_current(url)
+                    if self._current_cam is None:
                         self.media = self.vlc_instance.media_new(url)
             #                self.media.add_option(":network-caching=0")
             #                self.media.add_option(":clock-jitter=0")
             #                self.media.add_option(":clock-synchro=0")
                         # put the media in the media player
                         self.mediaplayer.set_media(self.media)
+                        rospy.loginfo(" use internal vlc to play: %s" % url)
                         self.mediaplayer.play()
                 self._current_cam = self.sender()
         except rospy.ServiceException, e:
