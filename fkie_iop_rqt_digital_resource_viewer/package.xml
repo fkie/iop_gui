@@ -16,13 +16,13 @@
   <build_depend>fkie_iop_msgs</build_depend>
   <build_depend>fkie_iop_ocu_slavelib</build_depend>
 
-  <run_depend>libvlc</run_depend>
   <run_depend>python_qt_binding</run_depend>
   <run_depend>fkie_iop_msgs</run_depend>
   <run_depend>fkie_iop_ocu_slavelib</run_depend>
   <run_depend>std_msgs</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>rqt_gui</run_depend>
+  <run_depend>libvlc-dev</run_depend>
   <!--  <run_depend>vlc-nox</run_depend> -->
 
   <!-- Depend on
