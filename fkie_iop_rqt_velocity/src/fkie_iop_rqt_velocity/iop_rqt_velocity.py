@@ -33,6 +33,7 @@ from std_msgs.msg import Float64, Float64MultiArray
 import rosgraph
 import roslib.message
 import rospy
+import threading
 
 from .topic_info import TopicInfo
 
@@ -74,29 +75,43 @@ class JointStateGroup(QFrame):
     self._cmd_publisher = None
     if self._cmd_type and self._topic_command:
       self._cmd_publisher = rospy.Publisher(self._topic_command, self._cmd_type, queue_size=1)
+    self._timer_send = None
+    self._cmd_msg = None
 
   def shutdown_roscomm(self):
+    self._stop_timer_send()
     if self._cmd_publisher is not None:
       self._cmd_publisher.unregister()
       self._cmd_publisher = None
+
+  def _stop_timer_send(self):
+    if self._timer_send is not None:
+      self._timer_send.shutdown()
+      self._timer_send = None
+      self._cmd_msg = None
+
+  def _timer_publish_cmd(self, cmd=None):
+    if self._cmd_publisher is not None and self._cmd_msg is not None:
+      self._cmd_publisher.publish(self._cmd_msg)
 
   def clear_parent(self):
     self.setParent( None )
 
   def on_clicked_send(self):
+    self._stop_timer_send()
     cmd_vals = self._get_value_array()
-    msg = self._cmd_type()
-    if isinstance(msg, Float64MultiArray):
+    self._cmd_msg = self._cmd_type()
+    if isinstance(self._cmd_msg, Float64MultiArray):
       for val in cmd_vals:
-        msg.data.append(val)
-    elif isinstance(msg, Float64):
+        self._cmd_msg.data.append(val)
+    elif isinstance(self._cmd_msg, Float64):
       for val in cmd_vals:
-        msg.data = val
+        self._cmd_msg.data = val
         break
-    if self._cmd_publisher is not None:
-      self._cmd_publisher.publish(msg)
+    self._timer_send = rospy.Timer(rospy.Duration(0.05), self._timer_publish_cmd)
 
   def on_clicked_send_zero(self):
+    self._stop_timer_send()
     msg = self._cmd_type()
     if isinstance(msg, Float64MultiArray):
       cmd_vals = self._get_value_array()
@@ -246,7 +261,7 @@ class VelocityControl(Plugin):
 
   def signal_callback_list( self, msg ):
     # update
-    caller = msg._connection_header['callerid']
+    caller = str(len(msg.name))  # msg._connection_header['callerid']
     if caller not in self._jointgroups:
       stored_topic = None
       if caller in self._topic_commands:
