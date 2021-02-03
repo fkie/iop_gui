@@ -22,6 +22,7 @@
   <run_depend>std_msgs</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>rqt_gui</run_depend>
+  <!-- <run_depend>python3-vlc</run_depend> -->
   <!-- <run_depend>libvlc-dev</run_depend> -->
   <!--  <run_depend>vlc-nox</run_depend> -->
 
