@@ -285,7 +285,7 @@ class DigitalResourceViewer(Plugin):
                         rospy.loginfo(" use internal vlc to play: %s" % url)
                         self.mediaplayer.play()
                 self._current_cam = self.sender()
-        except rospy.ServiceException, e:
+        except rospy.ServiceException as e:
             rospy.logwarn("Can not play url %s: %s" % (url, e))
         if url and url in self._publisher:
             self._publisher[url].publish(url)
