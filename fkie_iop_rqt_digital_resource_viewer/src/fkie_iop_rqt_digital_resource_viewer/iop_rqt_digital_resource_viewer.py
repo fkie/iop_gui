@@ -160,10 +160,10 @@ class DigitalResourceViewer(Plugin):
         self._topic_resource_id = instance_settings.value('topic_resource_id', rospy.names.ns_join(rospy.get_namespace(), 'dv_resource_id'))
         rtsp_over_tcp = instance_settings.value('rtps_over_tcp', self._rtsp_over_tcp)
         self._use_multiple_urls = instance_settings.value('use_multi_url', self._use_multiple_urls)
-        if isinstance(self._use_multiple_urls, (str, unicode)):
+        if isinstance(self._use_multiple_urls, str):
             self._use_multiple_urls = self._use_multiple_urls.lower() in ("yes", "true", "t", "1")
         self._use_vlc = instance_settings.value('use_internal_vlc', self._use_vlc)
-        if isinstance(self._use_vlc, (str, unicode)):
+        if isinstance(self._use_vlc, str):
             self._use_vlc = self._use_vlc.lower() in ("yes", "true", "t", "1")
         if not self._use_multiple_urls:
             self._widget.videoFrame.setVisible(self._use_vlc)
