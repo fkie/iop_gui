@@ -18,7 +18,6 @@
 #
 
 from python_qt_binding.QtCore import Qt, Signal
-from bzrlib.transport.http._urllib2_wrappers import checked_kerberos
 
 try:
     from python_qt_binding.QtGui import QPushButton
