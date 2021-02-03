@@ -108,8 +108,8 @@ class Settings(QObject):
         try:
             update_srvs = rospy.ServiceProxy(srvs_name, Empty)
             update_srvs()
-        except rospy.ServiceException, e:
-            print "Service call for update JAUS network failed: %s" % e
+        except rospy.ServiceException as e:
+            print("Service call for update JAUS network failed: %s" % e)
 
     def save_settings(self, plugin_settings, instance_settings):
         # TODO save intrinsic configuration, usually using:
@@ -133,7 +133,7 @@ class Settings(QObject):
         self._authority = (int)(instance_settings.value('authority', 205))
         self._namespace = instance_settings.value('namespace', '/')
         self._handoff_autorequest = instance_settings.value('handoff_autorequest', False)
-        if isinstance(self._handoff_autorequest, (str, unicode)):
+        if isinstance(self._handoff_autorequest, str):
             self._handoff_autorequest = self._handoff_autorequest.lower() in ("yes", "true", "t", "1")
         self._handoff_explanation = instance_settings.value('handoff_explanation', 'autorequest')
         self._topic_system = instance_settings.value('iop_system', '/iop_system')

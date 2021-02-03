@@ -99,7 +99,7 @@ class HandoffDialog(QDialog):
                 self._blink_last_state = state
                 self.button_blink.emit(state)
         except Exception as e:
-            print "update_blink_timer:", e
+            print("update_blink_timer:" % e)
 
     def set_client(self, client):
         self._client = client
