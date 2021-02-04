@@ -59,7 +59,7 @@ class HandoffDialog(QDialog):
         self.setWindowTitle("Handoff for %s[%d]" % (self.name, self.subsystem_id))
         self.setWindowIcon(QIcon.fromTheme("dialog-question"))
         self.lineEdit_explanation.setText(self._settings.handoff_explanation)
-        self.checkBox_autorequest.setChecked(self._settings.handoff_autorequest)
+        self.checkBox_autorequest.setChecked(self._settings.handoff_autorequest in ['true', 'True', '1', True])
         self.button_request_handoff.clicked.connect(self.request_handoff)
         self.button_cancel_handoff.clicked.connect(self.cancel_handoff)
         self.button_close.clicked.connect(self.hide)
