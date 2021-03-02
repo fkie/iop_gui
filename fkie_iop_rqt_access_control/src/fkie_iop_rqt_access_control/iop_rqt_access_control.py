@@ -21,15 +21,12 @@
 import os
 import time
 
+from ament_index_python import get_resource
 from python_qt_binding import loadUi
-try:
-    from python_qt_binding.QtGui import QWidget
-except Exception:
-    from python_qt_binding.QtWidgets import QWidget
+from python_qt_binding.QtWidgets import QWidget  # pylint: disable=no-name-in-module, import-error
 
 from qt_gui.plugin import Plugin
-import rospy
-
+import rclpy
 from fkie_iop_msgs.msg import JausAddress, OcuCmd
 from .client import Client
 from .robot import Address, Robot
@@ -50,6 +47,8 @@ class AccessControlClient(Plugin):
         super(AccessControlClient, self).__init__(context)
         # Give QObjects reasonable names
         self.setObjectName('AccessControlClient')
+        self._node = context.node
+        self._logger = self._node.get_logger().get_child('iop_rqt_access_control.AccessControlClient')
         # Process standalone plugin command-line arguments
         from argparse import ArgumentParser
         parser = ArgumentParser()
@@ -70,8 +69,10 @@ class AccessControlClient(Plugin):
         # Extend the widget with all attributes and children from UI file
         # loadUi(ui_file, self._widget)
         # Give QObjects reasonable names
-        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'iop_rqt_access_control.ui')
+        _, package_path = get_resource('packages', 'fkie_iop_rqt_access_control')
+        ui_file = os.path.join(package_path, 'share', 'fkie_iop_rqt_access_control', 'resource', 'iop_rqt_access_control.ui')
         loadUi(ui_file, self._widget)
+
         self._widget.setObjectName('AccessControlClientUi')
         self._widget.setWindowTitle("AccessControlClient")
         self._widget.warn_client_button.setVisible(False)
@@ -87,14 +88,14 @@ class AccessControlClient(Plugin):
         context.add_widget(self._widget)
         self.context = context
         self._access_control = self.ACCESS_CONTROL_RELEASE
-        self.settings = Settings()
+        self.settings = Settings(self._node)
         self.settings.signal_system.connect(self.signal_callback_subsystem)
         self.settings.signal_feedback.connect(self.signal_callback_feedback)
         self.settings.signal_ident.connect(self.signal_callback_ident)
-        rospy.on_shutdown(self.on_ros_shutdown)
-        self._update_timer = rospy.Timer(rospy.Duration(5), self._update_robot_timer)
+        # rospy.on_shutdown(self.on_ros_shutdown)
+        self._update_timer = self._node.create_timer(5.0, self._update_robot_timer)
 
-    def _update_robot_timer(self, event):
+    def _update_robot_timer(self):
         for robot in self._robotlist:
             if robot.is_old():
                 robot.release_control()
@@ -117,7 +118,7 @@ class AccessControlClient(Plugin):
                     updated = True
             if not updated:
                 # add new robot
-                robot = Robot(subsystem, self.settings)
+                robot = Robot(subsystem, self.settings, node=self._node)
                 robot.control_activated.connect(self.on_robot_control_activated)
                 robot.control_deactivated.connect(self.on_robot_control_deactivated)
                 robot.view_activated.connect(self.on_robot_view_activated)
@@ -144,12 +145,12 @@ class AccessControlClient(Plugin):
         '''
         # find the existing client or create a new one
         client = None
-        caddr = Address(JausAddress(control_feedback.reporter.subsystem_id, control_feedback.reporter.node_id, 0))
+        caddr = Address(JausAddress(subsystem_id=control_feedback.reporter.subsystem_id, node_id=control_feedback.reporter.node_id, component_id=0))
         try:
             index = self._clients.index(caddr)
             client = self._clients[index]
         except ValueError:
-            client = Client(caddr.subsystem_id, caddr.node_id, caller_ns)
+            client = Client(self._node, caddr.subsystem_id, caddr.node_id, caller_ns)
             client.signal_handoff_request.connect(self.signal_handoff_request)
             client.signal_handoff_response.connect(self.signal_handoff_response)
             self._clients.append(client)
@@ -328,17 +329,17 @@ class AccessControlClient(Plugin):
             cmd.cmds.append(cmd_entry)
         self.settings.publish_cmd(cmd)
 
-    def on_ros_shutdown(self, *args):
-        try:
-            from python_qt_binding.QtGui import QApplication
-            QApplication.exit(0)
-        except Exception:
-            from python_qt_binding.QtWidgets import QApplication
-            QApplication.exit(0)
+    # def on_ros_shutdown(self, *args):
+    #     try:
+    #         from python_qt_binding.QtGui import QApplication
+    #         QApplication.exit(0)
+    #     except Exception:
+    #         from python_qt_binding.QtWidgets import QApplication
+    #         QApplication.exit(0)
 
     def shutdown_plugin(self):
         # send access release?
-        self._update_timer.shutdown()
+        self._update_timer.destroy()
         self.release_all()
         del self._robotlist[:]
         self._control_client = None

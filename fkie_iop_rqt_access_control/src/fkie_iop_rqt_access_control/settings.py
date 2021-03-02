@@ -18,17 +18,15 @@
 #
 # :author: Alexander Tiderko
 
+from ament_index_python import get_resource
 from python_qt_binding import loadUi
-from python_qt_binding.QtCore import QObject, Signal
-try:
-    from python_qt_binding.QtGui import QComboBox, QDialog
-except:
-    from python_qt_binding.QtWidgets import QComboBox, QDialog
+from python_qt_binding.QtCore import QObject, Signal  # pylint: disable=no-name-in-module, import-error
+from python_qt_binding.QtWidgets import QComboBox, QDialog  # pylint: disable=no-name-in-module, import-error
 
+import rclpy
 import os
-import roslib.names
-import rospy
 import time
+
 from std_srvs.srv import Empty
 from fkie_iop_msgs.msg import Identification, OcuFeedback, System, OcuCmd
 from .topic_info import TopicInfo
@@ -42,14 +40,15 @@ class Settings(QObject):
     signal_feedback = Signal(OcuFeedback, str)
     signal_ident = Signal(Identification)
 
-    def __init__(self):
+    def __init__(self, node:rclpy.node.Node):
         QObject.__init__(self)
-
+        self._node = node
         self.dialog_config = QDialog()
-        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'iop_rqt_access_control_config.ui')
+        _, package_path = get_resource('packages', 'fkie_iop_rqt_access_control')
+        ui_file = os.path.join(package_path, 'share', 'fkie_iop_rqt_access_control', 'resource', 'iop_rqt_access_control_config.ui')
         loadUi(ui_file, self.dialog_config)
         self.dialog_config.accepted.connect(self.on_dialog_config_accepted)
-        self._ti = TopicInfo()
+        self._ti = TopicInfo(self._node)
 
         self._topic_system = '/iop_system'
         self._service_update_discovery = '/iop_update_discovery'
@@ -80,14 +79,14 @@ class Settings(QObject):
 
     def publish_cmd(self, cmd):
         time.sleep(0.1)
-        if self._pub_cmd is not None and not rospy.is_shutdown():
+        if self._pub_cmd is not None:
             self._pub_cmd.publish(cmd)
 
     def _callback_ocu_feedback(self, control_feedback):
         ns = '/'
         try:
             caller = control_feedback._connection_header['callerid']
-            ns = roslib.names.namespace(caller)
+            ns = os.path.dirname(caller)
         except Exception:
             pass
         self.signal_feedback.emit(control_feedback, ns)
@@ -106,9 +105,9 @@ class Settings(QObject):
         srvs_name = self._service_update_discovery
         # rospy.wait_for_service(srvs_name)
         try:
-            update_srvs = rospy.ServiceProxy(srvs_name, Empty)
-            update_srvs()
-        except rospy.ServiceException as e:
+            update_srvs = self._node.create_client(Empty, srvs_name)
+            update_srvs.cli.call_async(Empty.Request())
+        except Exception as e:
             print("Service call for update JAUS network failed: %s" % e)
 
     def save_settings(self, plugin_settings, instance_settings):
@@ -147,12 +146,13 @@ class Settings(QObject):
         # Comment in to signal that the plugin has a way to configure it
         # Usually used to open a configuration dialog
         self.dialog_config = QDialog()
-        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'iop_rqt_access_control_config.ui')
+        _, package_path = get_resource('packages', 'fkie_iop_rqt_access_control')
+        ui_file = os.path.join(package_path, 'share', 'fkie_iop_rqt_access_control', 'resource', 'iop_rqt_access_control_config.ui')
         loadUi(ui_file, self.dialog_config)
         self.dialog_config.accepted.connect(self.on_dialog_config_accepted)
         self._current_namespace = self.dialog_config.comboBox_namespace.currentText()
-        if (rospy.names.get_namespace() != self._current_namespace):
-            self.dialog_config.comboBox_namespace.addItem(rospy.names.get_namespace())
+        if (self._node.get_namespace() != self._current_namespace):
+            self.dialog_config.comboBox_namespace.addItem(self._node.get_namespace())
         self.dialog_config.comboBox_namespace.focusOutEvent = self._namespace_focusOutEvent
 
         self.dialog_config.comboBox_authority.setCurrentText("%d" % self._authority)
@@ -160,14 +160,12 @@ class Settings(QObject):
         self.dialog_config.checkBox_autorequest.setChecked(self._handoff_autorequest)
         self.dialog_config.lineEdit_explanation.setText(self._handoff_explanation)
         # fill configuration dialog
-        ti = TopicInfo()
-        ti.fill_published_topics(self.dialog_config.comboBox_discovery_topic, "fkie_iop_msgs/System", self._topic_system)
-        default_name = rospy.names.ns_join(rospy.get_namespace(), 'iop_update_discovery')
-        if default_name != self._service_update_discovery:
-            self.dialog_config.comboBox_update_service.addItem(default_name)
-        ti.fill_published_topics(self.dialog_config.comboBox_identification_topic, "fkie_iop_msgs/Identification", self._topic_identification)
-        ti.fill_published_topics(self.dialog_config.comboBox_cmd_topic, "fkie_iop_msgs/OcuCmd", self._topic_cmd)
-        ti.fill_published_topics(self.dialog_config.comboBox_feedback_topic, "fkie_iop_msgs/OcuFeedback", self._topic_feedback)
+        ti = TopicInfo(self._node)
+        ti.fill_published_topics(self.dialog_config.comboBox_discovery_topic, "fkie_iop_msgs/msg/System", self._topic_system)
+        ti.fill_services(self.dialog_config.comboBox_update_service, "std_srvs/srv/Empty", self._service_update_discovery)
+        ti.fill_published_topics(self.dialog_config.comboBox_identification_topic, "fkie_iop_msgs/msg/Identification", self._topic_identification)
+        ti.fill_subscribed_topics(self.dialog_config.comboBox_cmd_topic, "fkie_iop_msgs/msg/OcuCmd", self._topic_cmd)
+        ti.fill_published_topics(self.dialog_config.comboBox_feedback_topic, "fkie_iop_msgs/msg/OcuFeedback", self._topic_feedback)
         # stop on cancel pressed
         if not self.dialog_config.exec_():
             return
@@ -191,7 +189,7 @@ class Settings(QObject):
             self.dialog_config.comboBox_feedback_topic.setCurrentText(newname)
 
     def _replace_namespace(self, topic, newns):
-        return rospy.names.ns_join(newns, topic.split(rospy.names.SEP)[-1])
+        return os.path.join(newns, topic.split(os.path.sep)[-1])
 
     def on_dialog_config_accepted(self):
         self.test_namespace()
@@ -211,24 +209,35 @@ class Settings(QObject):
         # if self._topic_system:
         #     self._topic_system = rosgraph.names.script_resolve_name('rostopic', self._topic_system)
         if self._topic_system:
-            self._sub_system = rospy.Subscriber(self._topic_system, System, self._callback_system, queue_size=10)
+            self._sub_system = self._node.create_subscription(System, self._topic_system, self._callback_system, self.qos_profile_latched())
         if self._pub_cmd is None:
-            self._pub_cmd = rospy.Publisher(self._topic_cmd, OcuCmd, latch=True, queue_size=10)
+            self._pub_cmd = self._node.create_publisher(OcuCmd, self._topic_cmd, self.qos_profile_latched())
         if self._sub_feedback is None:
-            self._sub_feedback = rospy.Subscriber(self._topic_feedback, OcuFeedback, self._callback_ocu_feedback, queue_size=10)
+            self._sub_feedback = self._node.create_subscription(OcuFeedback, self._topic_feedback, self._callback_ocu_feedback, self.qos_profile_latched())
         if self._sub_ident is None:
-            self._sub_ident = rospy.Subscriber(self._topic_identification, Identification, self._callback_ocu_ident, queue_size=10)
+            self._sub_ident = self._node.create_subscription(Identification, self._topic_identification, self._callback_ocu_ident, 10)
+
+    def qos_profile_latched(self):
+        '''
+        Convenience retrieval for a latched topic (publisher / subscriber)
+        '''
+        return rclpy.qos.QoSProfile(
+            history=rclpy.qos.QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
+            depth=1,
+            durability=rclpy.qos.QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL,
+            reliability=rclpy.qos.QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_RELIABLE
+        )
 
     def shutdownRosComm(self):
         if self._sub_system is not None:
-            self._sub_system.unregister()
+            self._sub_system.destroy()
             self._sub_system = None
         if self._sub_feedback is not None:
-            self._sub_feedback.unregister()
+            self._sub_feedback.destroy()
             self._sub_feedback = None
         if self._sub_ident is not None:
-            self._sub_ident.unregister()
+            self._sub_ident.destroy()
             self._sub_ident = None
         if self._pub_cmd is not None:
-            self._pub_cmd.unregister()
+            self._pub_cmd.destroy()
             self._pub_cmd = None

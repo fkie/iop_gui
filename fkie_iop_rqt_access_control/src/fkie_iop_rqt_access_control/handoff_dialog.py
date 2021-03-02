@@ -20,19 +20,17 @@
 
 import os
 
+from ament_index_python import get_resource
 from python_qt_binding import loadUi
-from python_qt_binding.QtCore import Signal
-from python_qt_binding.QtGui import QIcon
-try:
-    from python_qt_binding.QtGui import QDialog
-except:
-    from python_qt_binding.QtWidgets import QDialog
+from python_qt_binding.QtCore import Signal  # pylint: disable=no-name-in-module, import-error
+from python_qt_binding.QtGui import QIcon  # pylint: disable=no-name-in-module, import-error
+from python_qt_binding.QtWidgets import QDialog  # pylint: disable=no-name-in-module, import-error
 
-import rospy
-
+import rclpy
 from .address import Address
 from fkie_iop_msgs.msg import HandoffRequest
 from .handoff_request_widget import HandoffRequestWidget
+from .settings import Settings
 
 
 class HandoffDialog(QDialog):
@@ -43,9 +41,10 @@ class HandoffDialog(QDialog):
     BLINK_ON_OFF_REL = 4
     BLINK_DURATION = 0.5
 
-    def __init__(self, robot_name, subsystem_id, settings, parent=None):
+    def __init__(self, robot_name, subsystem_id, settings:Settings, node:rclpy.node.Node, parent=None):
         QDialog.__init__(self, parent)
         self._settings = settings
+        self._node = node
         self.name = robot_name
         self.subsystem_id = subsystem_id
         self._handoff_requests = list()
@@ -53,7 +52,8 @@ class HandoffDialog(QDialog):
         self._has_requests = False
         self._on_request = False
         self._insufficient_authority_warnings = dict()
-        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'handoff_dialog.ui')
+        _, package_path = get_resource('packages', 'fkie_iop_rqt_access_control')
+        ui_file = os.path.join(package_path, 'share', 'fkie_iop_rqt_access_control', 'resource', 'handoff_dialog.ui')
         loadUi(ui_file, self)
         self.resize(400, 450)
         self.setWindowTitle("Handoff for %s[%d]" % (self.name, self.subsystem_id))
@@ -66,18 +66,18 @@ class HandoffDialog(QDialog):
         self._client = None
         self.on_access = False
         # emit a signal `button_blink` to emulate the blinking button
-        self._blink_timer = rospy.Timer(rospy.Duration(self.BLINK_DURATION), self._update_blink_timer)
+        self._blink_timer = self._node.create_timer(self.BLINK_DURATION, self._update_blink_timer)
         self._blink_last_state = True
         self._blink_count_on = self.BLINK_ON_OFF_REL
         self.frame_own_request.setEnabled(True)
 
     def shutdown(self):
-        self._blink_timer.shutdown()
+        self._blink_timer.destroy()
         del self._handoff_requests[:]
         self._insufficient_authority_warnings.clear()
         self._client = None
 
-    def _update_blink_timer(self, event):
+    def _update_blink_timer(self):
         try:
             needs = self._has_insufficient_authority or self._has_requests
             state = self._blink_count_on > 0
@@ -143,7 +143,7 @@ class HandoffDialog(QDialog):
         self._on_request = False
 
     def handle_handoff_request(self, request):
-        hrw = HandoffRequestWidget(request)
+        hrw = HandoffRequestWidget(request, self._node)
         try:
             index = self._handoff_requests.index(hrw)
             if request.request:

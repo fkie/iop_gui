@@ -20,15 +20,12 @@
 
 import os
 
+from ament_index_python import get_resource
 from python_qt_binding import loadUi
-from python_qt_binding.QtCore import Signal
-try:
-    from python_qt_binding.QtGui import QWidget
-except:
-    from python_qt_binding.QtWidgets import QWidget
+from python_qt_binding.QtCore import Signal  # pylint: disable=no-name-in-module, import-error
+from python_qt_binding.QtWidgets import QWidget  # pylint: disable=no-name-in-module, import-error
 
-import rospy
-
+import rclpy
 from .address import Address
 from fkie_iop_msgs.msg import HandoffResponse
 
@@ -49,10 +46,12 @@ class HandoffRequestWidget(QWidget):
     response = Signal(HandoffResponse)
     activation_changed = Signal(bool)
 
-    def __init__(self, request):
+    def __init__(self, request, node:rclpy.node.Node):
         QWidget.__init__(self)
         self._request = request
-        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'handoff_request.ui')
+        self._node = node
+        _, package_path = get_resource('packages', 'fkie_iop_rqt_access_control')
+        ui_file = os.path.join(package_path, 'share', 'fkie_iop_rqt_access_control', 'resource', 'handoff_request.ui')
         loadUi(ui_file, self)
         self.button_allow.clicked.connect(self._on_allow)
         self.button_wait.clicked.connect(self._on_wait)
@@ -60,7 +59,7 @@ class HandoffRequestWidget(QWidget):
         self.ocu_address = Address(request.ocu)
         self.label_requester.setText("Requester: %s" % self.ocu_address)
         self.label_reason.setText("Reason: %s" % request.explanation)
-        self._last_update = rospy.Time.now()
+        self._last_update = self._node.get_clock().now()
         self._current_state = self.STATE_NONE
         self._active = True
 
@@ -95,12 +94,12 @@ class HandoffRequestWidget(QWidget):
             self.show()
         self._request = request
         self.label_reason.setText("Reason: %s" % request.explanation)
-        self._last_update = rospy.Time.now()
+        self._last_update = self._node.get_clock().now()
         if self._current_state in [self.STATE_NONE, self.STATE_WAIT]:
             self.set_active(True)
 
     def expired(self):
-        return rospy.Time.now() - self._last_update > self.MAX_AGE
+        return self._node.get_clock().now() - self._last_update > self.MAX_AGE
 
     def _on_allow(self, state=False):
         if state and self._current_state in [self.STATE_NONE, self.STATE_WAIT]:

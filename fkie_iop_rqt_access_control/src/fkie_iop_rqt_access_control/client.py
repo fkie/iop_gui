@@ -21,8 +21,8 @@
 from fkie_iop_msgs.msg import HandoffRequest, HandoffResponse, OcuFeedback, JausAddress
 from python_qt_binding.QtCore import QObject, Signal
 
+import rclpy
 from .address import Address
-import rospy
 
 
 class Client(QObject):
@@ -35,12 +35,13 @@ class Client(QObject):
     signal_handoff_request = Signal(HandoffRequest)
     signal_handoff_response = Signal(HandoffResponse)
 
-    def __init__(self, subsystem_id, node_id, caller_ns):
+    def __init__(self, node:rclpy.node.Node, subsystem_id:int, node_id:int, caller_ns:str):
         '''
         :param caller_ns: the namespace of the client used to create handoff topics
         '''
         QObject.__init__(self)
-        jaus_address = JausAddress(subsystem_id, node_id, 0)
+        self._node = node
+        jaus_address = JausAddress(subsystem_id=subsystem_id, node_id=node_id, component_id=0)
         self._address = Address(jaus_address)
         self._subsystem_restricted = 65535
         self._only_monitor = False
@@ -54,16 +55,16 @@ class Client(QObject):
         self._topic_handoff_own_response = '%shandoff_own_response' % caller_ns
         self._topic_handoff_remote_request = '%shandoff_remote_request' % caller_ns
         self._topic_handoff_remote_response = '%shandoff_remote_response' % caller_ns
-        self._pub_handoff_own_request = rospy.Publisher(self._topic_handoff_own_request, HandoffRequest, queue_size=10)
-        self._pub_handoff_own_response = rospy.Publisher(self._topic_handoff_own_response, HandoffResponse, queue_size=10)
-        self._sub_handoff_remote_request = rospy.Subscriber(self._topic_handoff_remote_request, HandoffRequest, self._callback_handoff_remote_request, queue_size=10)
-        self._sub_handoff_remote_response = rospy.Subscriber(self._topic_handoff_remote_response, HandoffResponse, self._callback_handoff_remote_response, queue_size=10)
+        self._pub_handoff_own_request = self._node.create_publisher(HandoffRequest, self._topic_handoff_own_request, 10)
+        self._pub_handoff_own_response = self._node.create_publisher(HandoffResponse, self._topic_handoff_own_response, 10)
+        self._sub_handoff_remote_request = self._node.create_subscription(HandoffRequest, self._topic_handoff_remote_request, self._callback_handoff_remote_request, 10)
+        self._sub_handoff_remote_response = self._node.create_subscription(HandoffResponse, self._topic_handoff_remote_response, self._callback_handoff_remote_response, 10)
 
     def shutdown(self):
-        self._pub_handoff_own_request.unregister()
-        self._pub_handoff_own_response.unregister()
-        self._sub_handoff_remote_request.unregister()
-        self._sub_handoff_remote_response.unregister()
+        self._pub_handoff_own_request.destroy()
+        self._pub_handoff_own_response.destroy()
+        self._sub_handoff_remote_request.destroy()
+        self._sub_handoff_remote_response.destroy()
         self._ocu_nodes.clear()
         self._warnings.clear()
         self._ins_autorithy.clear()
@@ -100,16 +101,16 @@ class Client(QObject):
         return self.subsystem_restricted not in [0, 65535]
 
     def has_handoff_publisher(self):
-        return self._sub_handoff_remote_request.get_num_connections() > 0 and self._pub_handoff_own_request.get_num_connections() > 0
+        return self._pub_handoff_own_request.get_subscription_count() > 0
 
     def publish_handoff_request(self, msg):
         # time.sleep(0.1)
-        if self._pub_handoff_own_request is not None and not rospy.is_shutdown():
+        if self._pub_handoff_own_request is not None:
             self._pub_handoff_own_request.publish(msg)
 
     def publish_handoff_response(self, msg):
         # time.sleep(0.1)
-        if self._pub_handoff_own_response is not None and not rospy.is_shutdown():
+        if self._pub_handoff_own_response is not None:
             self._pub_handoff_own_response.publish(msg)
 
     def _callback_handoff_remote_request(self, msg):
@@ -124,7 +125,7 @@ class Client(QObject):
         '''
         if not isinstance(feedback, OcuFeedback):
             raise TypeError("Client.apply() expects fkie_iop_msgs/OcuFeedback, got %s" % type(feedback))
-        jaus_address = JausAddress(feedback.reporter.subsystem_id, feedback.reporter.node_id, 0)
+        jaus_address = JausAddress(subsystem_id=feedback.reporter.subsystem_id, node_id=feedback.reporter.node_id, component_id=0)
         if self._address != Address(jaus_address):
             return False
         # change the controlled subsystem only once to avoid glint
@@ -205,7 +206,7 @@ class Client(QObject):
         if isinstance(other, Client):
             return self.address == other.address
         elif isinstance(other, (JausAddress, Address)):
-            return self.address == JausAddress(other.subsystem_id, other.node_id, 0)
+            return self.address == JausAddress(subsystem_id=other.subsystem_id, node_id=other.node_id, component_id=0)
         return False
 
     def __ne__(self, other):
@@ -214,12 +215,12 @@ class Client(QObject):
         if isinstance(other, Client):
             return not(self.address == other.address)
         elif isinstance(other, (JausAddress, Address)):
-            return not (self.address == JausAddress(other.subsystem_id, other.node_id, 0))
+            return not (self.address == JausAddress(subsystem_id=other.subsystem_id, node_id=other.node_id, component_id=0))
         return True
 
     def __lt__(self, other):
         if isinstance(other, Client):
             return self.address < other.address
         elif isinstance(other, (JausAddress, Address)):
-            return self.address < JausAddress(other.subsystem_id, other.node_id, 0)
+            return self.address < JausAddress(subsystem_id=other.subsystem_id, node_id=other.node_id, component_id=0)
         raise TypeError("Client.__lt__() expects Client, JausAddress or Address, got %s" % type(other))

@@ -20,19 +20,18 @@
 
 import os
 
+from ament_index_python import get_resource
 from python_qt_binding import loadUi
-from python_qt_binding.QtCore import QObject, Signal, Qt
-from python_qt_binding.QtGui import QIcon
-try:
-    from python_qt_binding.QtGui import QWidget, QDialog, QTreeWidget, QTreeWidgetItem
-except:
-    from python_qt_binding.QtWidgets import QWidget, QDialog, QTreeWidget, QTreeWidgetItem
+from python_qt_binding.QtCore import QObject, Signal, Qt  # pylint: disable=no-name-in-module, import-error
+from python_qt_binding.QtGui import QIcon  # pylint: disable=no-name-in-module, import-error
+from python_qt_binding.QtWidgets import QWidget, QDialog, QStyle, QTreeWidget, QTreeWidgetItem  # pylint: disable=no-name-in-module, import-error
 
-import rospy
-
+import rclpy
+from rclpy.duration import Duration
 from .address import Address
-from fkie_iop_msgs.msg import OcuCmdEntry, JausAddress
+from fkie_iop_msgs.msg import OcuCmdEntry, JausAddress, Subsystem
 from .handoff_dialog import HandoffDialog
+from .settings import Settings
 
 
 class Robot(QObject):
@@ -44,32 +43,40 @@ class Robot(QObject):
     view_activated = Signal(Address)
     view_deactivated = Signal(Address)
 
-    def __init__(self, subsystem, settings, authority=205):
+    def __init__(self, subsystem:Subsystem, settings:Settings, node:rclpy.node.Node, authority:int=205):
         QObject.__init__(self)
         self._subsystem = subsystem
         self._settings = settings
+        self._node = node
         self._authority = authority
-        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'robot.ui')
+        _, package_path = get_resource('packages', 'fkie_iop_rqt_access_control')
+        ui_file = os.path.join(package_path, 'share', 'fkie_iop_rqt_access_control', 'resource', 'robot.ui')
         self._widget = QWidget()
         loadUi(ui_file, self._widget)
-        self._last_update = rospy.Time.now()
+        self._last_update = self._node.get_clock().now()
         self._component_names = dict()
         self._warnings = []
         self._feedback_warnings = dict()
         self._ocu_client = None
         self._warning_dialog = self._create_warning_dialog()
         self._detailed_dialog = self._create_detailed_dialog()
-        self.handoff_dialog = HandoffDialog(self.name, self.subsystem_id, self._settings, self._widget)
+        self.handoff_dialog = HandoffDialog(self.name, self.subsystem_id, self._settings, node=self._node, parent=self._widget)
         self.handoff_dialog.button_blink.connect(self._widget.button_handoff.setEnabled)
         self._widget.button_view.clicked.connect(self._on_robot_view)
-        self._widget.button_control.setText("%s - %d" % (subsystem.ident.name, self._subsystem.ident.address.subsystem_id))
+        self._widget.button_control.setText('%s - %d' % (subsystem.ident.name, self._subsystem.ident.address.subsystem_id))
         self._widget.button_control.clicked.connect(self._on_robot_control)
         self._widget.button_control.setObjectName(subsystem.ident.name)
+        if self._widget.button_handoff.icon().isNull():
+            self._widget.button_handoff.setIcon(self._widget.style().standardIcon(getattr(QStyle, 'SP_MessageBoxQuestion')))
         self._widget.button_handoff.setEnabled(False)
         self._widget.button_handoff.clicked.connect(self.on_show_handoff)
+        if self._widget.button_warnings.icon().isNull():
+            self._widget.button_warnings.setIcon(self._widget.style().standardIcon(getattr(QStyle, 'SP_MessageBoxWarning')))
         self._widget.button_warnings.setEnabled(False)
         self._widget.button_warnings.clicked.connect(self.on_show_warnings)
         self._widget.button_details.clicked.connect(self.on_show_details)
+        if self._widget.button_details.icon().isNull():
+            self._widget.button_details.setIcon(self._widget.style().standardIcon(getattr(QStyle, 'SP_FileDialogDetailedView')))
 
     def __del__(self):
         self.handoff_dialog.setParent(None)
@@ -108,12 +115,12 @@ class Robot(QObject):
             self.handoff_dialog.set_client(self._ocu_client)
             self.update_feedback_warnings()
         elif self.has_view() or self.has_control():
-            self.set_warnings(["No free OCU client available!", "Start an ocu_client with different nodeID to be able to listen for sensors on second robot."])
+            self.set_warnings(["No free OCU client with AccessControlClient available!", "Start an ocu_client with different nodeID or add AccessControlClient to be able to control or listen for sensors on second robot."])
             self.handoff_dialog.set_client(None)
-        if self._ocu_client is not None:
-            self._widget.button_handoff.setVisible(self._ocu_client.has_handoff_publisher())
-        else:
-            self._widget.button_handoff.setVisible(True)
+        # if self._ocu_client is not None:
+        #     self._widget.button_handoff.setVisible(self._ocu_client.has_handoff_publisher())
+        # else:
+        #     self._widget.button_handoff.setVisible(True)
 
     @property
     def ocu_client_restricted(self):
@@ -130,7 +137,7 @@ class Robot(QObject):
         Click on control robot button. Change to controlled or monitor state.
         Publishes the signals: control_activated or view_activated.
         '''
-        addr = Address(JausAddress(self._subsystem.ident.address.subsystem_id, 0, 0))
+        addr = Address(JausAddress(subsystem_id=self._subsystem.ident.address.subsystem_id, node_id=0, component_id=0))
         if checked:
             self._widget.button_view.setChecked(checked)
             self.control_activated.emit(addr)
@@ -148,7 +155,7 @@ class Robot(QObject):
         Click on view robot button. Change to monitor or not controlled state.
         Publishes the signals: view_activated or control_deactivated.
         '''
-        addr = Address(JausAddress(self._subsystem.ident.address.subsystem_id, 0, 0))
+        addr = Address(JausAddress(subsystem_id=self._subsystem.ident.address.subsystem_id, node_id=0, component_id=0))
         if checked:
             self._widget.button_view.setChecked(checked)
             self.view_activated.emit(addr)
@@ -183,7 +190,7 @@ class Robot(QObject):
         else:
             cmd.access_control = 10
         if self.ocu_client is not None:
-            cmd.ocu_client = self.ocu_client.address
+            cmd.ocu_client = JausAddress(subsystem_id=self.ocu_client.address.subsystem_id, node_id=self.ocu_client.address.node_id, component_id=self.ocu_client.address.component_id)
         else:
             cmd.ocu_client.subsystem_id = 65535
         return cmd
@@ -200,7 +207,6 @@ class Robot(QObject):
         if self._subsystem.ident.name != subsystem.ident.name:
             return False
         self._subsystem = subsystem
-        # self._last_update = rospy.Time.now()
         return True
 
     def on_show_handoff(self):
@@ -301,7 +307,7 @@ class Robot(QObject):
 
     def update_ident(self, ident):
         if Address(ident.address) == Address(self._subsystem.ident.address):
-            self._last_update = rospy.Time.now()
+            self._last_update = self._node.get_clock().now()
         if ident.system_type == 60001 or ident.request_type == 4:
             if ident.address.subsystem_id == self._subsystem.ident.address.subsystem_id:
                 self._component_names[Address(ident.address)] = ident.name
@@ -316,14 +322,15 @@ class Robot(QObject):
         return "Component"
 
     def is_old(self):
-        return rospy.Time.now() - self._last_update > rospy.Duration(self.MAX_AGE)
+        return self._node.get_clock().now() - self._last_update > Duration(seconds=self.MAX_AGE)
 
     def get_widget(self):
         return self._widget
 
     def _create_warning_dialog(self):
         diag = QDialog(self._widget)
-        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'warning_info.ui')
+        _, package_path = get_resource('packages', 'fkie_iop_rqt_access_control')
+        ui_file = os.path.join(package_path, 'share', 'fkie_iop_rqt_access_control', 'resource', 'warning_info.ui')
         loadUi(ui_file, diag)
         diag.resize(600, 250)
         diag.setWindowTitle("Warning for %s[%d]" % (self.name, self.subsystem_id))
@@ -332,7 +339,8 @@ class Robot(QObject):
 
     def _create_detailed_dialog(self):
         diag = QDialog(self._widget)
-        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'system_info.ui')
+        _, package_path = get_resource('packages', 'fkie_iop_rqt_access_control')
+        ui_file = os.path.join(package_path, 'share', 'fkie_iop_rqt_access_control', 'resource', 'system_info.ui')
         loadUi(ui_file, diag)
         diag.treewidget_components.setHeaderLabel("%s [%d]" % (self.name, self.subsystem_id))
         diag.resize(500, 300)

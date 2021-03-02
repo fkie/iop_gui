@@ -17,28 +17,26 @@
 # <http://www.gnu.de/documents/gpl-2.0.html>
 #
 
-from std_msgs.msg import UInt16, String
-from fkie_iop_msgs.msg import DigitalResourceEndpoints, VisualSensorNames
+from ament_index_python import get_resource
 from python_qt_binding import loadUi
-from python_qt_binding.QtCore import Signal, Qt
-from python_qt_binding.QtGui import QIcon, QPalette, QColor
-try:
-    from python_qt_binding.QtGui import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDialog, QMessageBox
-except Exception:
-    from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDialog, QMessageBox
+from python_qt_binding.QtCore import Signal, Qt  # pylint: disable=no-name-in-module, import-error
+from python_qt_binding.QtGui import QIcon, QPalette, QColor  # pylint: disable=no-name-in-module, import-error
+from python_qt_binding.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDialog, QMessageBox  # pylint: disable=no-name-in-module, import-error
 
 from qt_gui.plugin import Plugin
 import os
 import sys
-import rosgraph
-import rospy
+
+import rclpy
+from std_msgs.msg import UInt16, String
+from fkie_iop_msgs.msg import DigitalResourceEndpoints, VisualSensorNames
 
 from .cam import Cam
 from .topic_info import TopicInfo
 try:
     import vlc
 except Exception as e:
-    rospy.logwarn("%s\nIf you will use internal vlc player install:\n sudo apt install vlc-nox" % e)
+    print("%s\nIf you will use internal vlc player install:\n sudo apt install vlc-nox" % e, file=sys.stderr)
     vlc = None
 
 
@@ -49,6 +47,7 @@ class DigitalResourceViewer(Plugin):
 
     def __init__(self, context):
         super(DigitalResourceViewer, self).__init__(context)
+        self._node = context.node
         # Give QObjects reasonable names
         self.setObjectName('DigitalResourceViewer')
 
@@ -69,7 +68,8 @@ class DigitalResourceViewer(Plugin):
         # Extend the widget with all attributes and children from UI file
         # loadUi(ui_file, self._widget)
         # Give QObjects reasonable names
-        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'iop_rqt_digital_resource_viewer.ui')
+        _, package_path = get_resource('packages', 'fkie_iop_rqt_digital_resource_viewer')
+        ui_file = os.path.join(package_path, 'share', 'fkie_iop_rqt_digital_resource_viewer', 'resource', 'iop_rqt_digital_resource_viewer.ui')
         loadUi(ui_file, self._widget)
         self._widget.setObjectName('DigitalResourceViewerUi')
         self._widget.setWindowTitle("DigitalResourceViewer")
@@ -84,12 +84,12 @@ class DigitalResourceViewer(Plugin):
         context.add_widget(self._widget)
         self._publisher = {}  # resource url: topic
         self._use_multiple_urls = False
-        self._use_vlc = True
+        self._use_vlc = False
         self.context = context
-        self._topic_video_url = rospy.names.ns_join(rospy.get_namespace(), 'current_video_url')
-        self._topic_endpoints = rospy.names.ns_join(rospy.get_namespace(), 'digital_endpoints')
-        self._topic_names = rospy.names.ns_join(rospy.get_namespace(), 'visual_sensor_names')
-        self._topic_resource_id = rospy.names.ns_join(rospy.get_namespace(), 'dv_resource_id')
+        self._topic_video_url = os.path.join(self._node.get_namespace(), 'current_video_url')
+        self._topic_endpoints = os.path.join(self._node.get_namespace(), 'digital_endpoints')
+        self._topic_names = os.path.join(self._node.get_namespace(), 'visual_sensor_names')
+        self._topic_resource_id = os.path.join(self._node.get_namespace(), 'dv_resource_id')
         self._subscriber_endpoints = None
         self._subscriber_names = None
         self._publisher_resource_id = None
@@ -105,6 +105,7 @@ class DigitalResourceViewer(Plugin):
         self._layout_buttons = QHBoxLayout()
         self._widget.buttonsFrame.setLayout(self._layout_buttons)
         self._current_cam = None
+        self._widget.labelInfo.setText('No sources availabe')
 
         # create video frame
         self.palette = self._widget.videoFrame.palette()
@@ -154,10 +155,10 @@ class DigitalResourceViewer(Plugin):
         # restore intrinsic configuration, usually using:
         # v = instance_settings.value(k)
         self.shutdownRosComm()
-        self._topic_video_url = instance_settings.value('topic_current_video_url', rospy.names.ns_join(rospy.get_namespace(), 'current_video_url'))
-        self._topic_endpoints = instance_settings.value('topic_endpoints', rospy.names.ns_join(rospy.get_namespace(), 'digital_endpoints'))
-        self._topic_names = instance_settings.value('topic_names', rospy.names.ns_join(rospy.get_namespace(), 'visual_sensor_names'))
-        self._topic_resource_id = instance_settings.value('topic_resource_id', rospy.names.ns_join(rospy.get_namespace(), 'dv_resource_id'))
+        self._topic_video_url = instance_settings.value('topic_current_video_url', os.path.join(self._node.get_namespace(), 'current_video_url'))
+        self._topic_endpoints = instance_settings.value('topic_endpoints', os.path.join(self._node.get_namespace(), 'digital_endpoints'))
+        self._topic_names = instance_settings.value('topic_names', os.path.join(self._node.get_namespace(), 'visual_sensor_names'))
+        self._topic_resource_id = instance_settings.value('topic_resource_id', os.path.join(self._node.get_namespace(), 'dv_resource_id'))
         rtsp_over_tcp = instance_settings.value('rtps_over_tcp', self._rtsp_over_tcp)
         self._use_multiple_urls = instance_settings.value('use_multi_url', self._use_multiple_urls)
         if isinstance(self._use_multiple_urls, str):
@@ -179,32 +180,32 @@ class DigitalResourceViewer(Plugin):
 
     def reinitRosComm(self):
         if self._topic_endpoints:
-            self._topic_endpoints = rosgraph.names.script_resolve_name('rostopic', self._topic_endpoints)
-            if self._topic_endpoints:
-                self._subscriber_endpoints = rospy.Subscriber(self._topic_endpoints, DigitalResourceEndpoints, self.callback_endpoints)
+            #self._topic_endpoints = rosgraph.names.script_resolve_name('rostopic', self._topic_endpoints)
+            #if self._topic_endpoints:
+                self._subscriber_endpoints = self._node.create_subscription(DigitalResourceEndpoints, self._topic_endpoints, self.callback_endpoints, 10)
         if self._topic_names:
-            self._topic_names = rosgraph.names.script_resolve_name('rostopic', self._topic_names)
-            if self._topic_names:
-                self._subscriber_names = rospy.Subscriber(self._topic_names, VisualSensorNames, self.callback_names)
+            #self._topic_names = rosgraph.names.script_resolve_name('rostopic', self._topic_names)
+            #if self._topic_names:
+                self._subscriber_names = self._node.create_subscription(VisualSensorNames, self._topic_names, self.callback_names, 10)
         if self._topic_resource_id:
-            self._topic_resource_id = rosgraph.names.script_resolve_name('rostopic', self._topic_resource_id)
-            if self._topic_resource_id:
-                self._publisher_resource_id = rospy.Publisher(self._topic_resource_id, UInt16, latch=True, queue_size=3)
-        if self._topic_video_url:
-            self._topic_video_url = rosgraph.names.script_resolve_name('rostopic', self._topic_video_url)
+            #self._topic_resource_id = rosgraph.names.script_resolve_name('rostopic', self._topic_resource_id)
+            #if self._topic_resource_id:
+                self._publisher_resource_id = self._node.create_publisher(UInt16, self._topic_resource_id, self.qos_profile_latched())
+        #if self._topic_video_url:
+        #    self._topic_video_url = rosgraph.names.script_resolve_name('rostopic', self._topic_video_url)
 
     def shutdownRosComm(self):
         if self._subscriber_endpoints:
-            self._subscriber_endpoints.unregister()
+            self._subscriber_endpoints.destroy()
             self._subscriber_endpoints = None
         if self._subscriber_names:
-            self._subscriber_names.unregister()
+            self._subscriber_names.destroy()
             self._subscriber_names = None
         if self._publisher_resource_id:
-            self._publisher_resource_id.unregister()
+            self._publisher_resource_id.destroy()
             self._publisher_resource_id = None
         if self._publisher_current_video_url:
-            self._publisher_current_video_url.unregister()
+            self._publisher_current_video_url.destroy()
             self._publisher_current_video_url = None
 
     def callback_endpoints(self, msg):
@@ -262,10 +263,25 @@ class DigitalResourceViewer(Plugin):
             # create publisher if not exists
             if cami.get_url() not in self._publisher:
                 if self._topic_video_url:
-                    self._publisher[cami.get_url()] = rospy.Publisher(self._topic_video_url + str(cami.get_resource_id()), String, latch=True, queue_size=3)
+                    self._publisher[cami.get_url()] = self._node.create_publisher(String, self._topic_video_url + str(cami.get_resource_id()), self.qos_profile_latched())
+        if self._cam_list:
+            self._widget.labelInfo.setText('')
+        else:
+            self._widget.labelInfo.setText('No sources availabe')
+
+    def qos_profile_latched(self):
+        '''
+        Convenience retrieval for a latched topic (publisher / subscriber)
+        '''
+        return rclpy.qos.QoSProfile(
+            history=rclpy.qos.QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
+            depth=1,
+            durability=rclpy.qos.QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL,
+            reliability=rclpy.qos.QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_RELIABLE
+        )
 
     def play(self, url, resource_id):
-        rospy.loginfo("play: %s" % url)
+        self._node.get_logger().info("play: %s" % url)
         for cami in self._cam_list:
             if self.sender() != cami and cami.get_url() == url:
                 cami.set_silent_unchecked(resource_id)
@@ -282,11 +298,11 @@ class DigitalResourceViewer(Plugin):
             #                self.media.add_option(":clock-synchro=0")
                         # put the media in the media player
                         self.mediaplayer.set_media(self.media)
-                        rospy.loginfo(" use internal vlc to play: %s" % url)
+                        self._node.get_logger().info(" use internal vlc to play: %s" % url)
                         self.mediaplayer.play()
                 self._current_cam = self.sender()
-        except rospy.ServiceException as e:
-            rospy.logwarn("Can not play url %s: %s" % (url, e))
+        except Exception as e:
+            self._node.get_logger().warn("Can not play url %s: %s" % (url, e))
         if url and url in self._publisher:
             self._publisher[url].publish(url)
             self._publisher_played_urls.append(url)
@@ -294,10 +310,10 @@ class DigitalResourceViewer(Plugin):
             ros_msg.data = resource_id
             self._publisher_resource_id.publish(ros_msg)
         else:
-            rospy.logwarn("Publisher for URI: '%s' while play not found!" % url)
+            self._node.get_logger().warn("Publisher for URI: '%s' while play not found!" % url)
 
     def stop(self, url, resource_id):
-        rospy.loginfo("stop: %s" % url)
+        self._node.get_logger().info("stop: %s" % url)
         if self._use_vlc and self._current_cam is not None:
             if self._current_cam.get_url() == url:
                 self.mediaplayer.stop()
@@ -309,7 +325,7 @@ class DigitalResourceViewer(Plugin):
             self._publisher[url].publish("")
             self._publisher_played_urls.remove(url)
         else:
-            rospy.logwarn("Publisher for URI: '%s' while stop not found!" % url)
+            self._node.get_logger().warn("Publisher for URI: '%s' while stop not found!" % url)
 
     def stop_current(self, ignore_url=''):
         if self._current_cam is not None:
@@ -325,18 +341,19 @@ class DigitalResourceViewer(Plugin):
         # Comment in to signal that the plugin has a way to configure it
         # Usually used to open a configuration dialog
         self.dialog_config = QDialog()
-        ui_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'iop_rqt_digital_resource_viewer_config.ui')
+        _, package_path = get_resource('packages', 'fkie_iop_rqt_digital_resource_viewer')
+        ui_file = os.path.join(package_path, 'share', 'fkie_iop_rqt_digital_resource_viewer', 'resource', 'iop_rqt_digital_resource_viewer_config.ui')
         loadUi(ui_file, self.dialog_config)
         self.dialog_config.accepted.connect(self.on_dialog_config_accepted)
         self.dialog_config.groupBoxUseInternalVlc.setChecked(self._use_vlc)
         self.dialog_config.checkboxUseMultiUrls.setChecked(self._use_multiple_urls)
         self.dialog_config.checkboxUseMultiUrls.clicked.connect(self.callback_multi_urls)
         # fill configuration dialog
-        ti = TopicInfo()
-        ti.fill_subscribed_topics(self.dialog_config.comboBox_video_url_topic, "std_msgs/String", self._topic_video_url)
-        ti.fill_published_topics(self.dialog_config.comboBox_endpoints_topic, "fkie_iop_msgs/DigitalResourceEndpoints", self._topic_endpoints)
-        ti.fill_published_topics(self.dialog_config.comboBox_name_topic, "fkie_iop_msgs/VisualSensorNames", self._topic_names)
-        ti.fill_subscribed_topics(self.dialog_config.comboBox_resource_topic, "std_msgs/UInt16", self._topic_resource_id)
+        ti = TopicInfo(self._node)
+        ti.fill_subscribed_topics(self.dialog_config.comboBox_video_url_topic, "std_msgs/msg/String", self._topic_video_url)
+        ti.fill_published_topics(self.dialog_config.comboBox_endpoints_topic, "fkie_iop_msgs/msg/DigitalResourceEndpoints", self._topic_endpoints)
+        ti.fill_published_topics(self.dialog_config.comboBox_name_topic, "fkie_iop_msgs/msg/VisualSensorNames", self._topic_names)
+        ti.fill_subscribed_topics(self.dialog_config.comboBox_resource_topic, "std_msgs/msg/UInt16", self._topic_resource_id)
         self.dialog_config.checkBoxRtspOverTcp.setChecked(len(self._rtsp_over_tcp) > 0)
 
         # stop on cancel pressed

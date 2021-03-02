@@ -285,7 +285,7 @@ class VelocityControl(Plugin):
 
     # fill configuration dialog
     ti = TopicInfo()
-    ti.fill_published_topics(self.dialog_config.comboBox_listTopic, "sensor_msgs/JointState", self._topic_list)
+    ti.fill_published_topics(self.dialog_config.comboBox_listTopic, "sensor_msgs/msg/JointState", self._topic_list)
 #    ti.fill_subscribed_topics(self.dialog_config.comboBox_commandTopic, "std_msgs/Float64MultiArray", self._topic_command)
 
   # stop on cancel pressed
