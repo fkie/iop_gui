@@ -183,6 +183,8 @@ class Robot(QObject):
         cmd.authority = self._settings.authority
         cmd.name = self.name
         cmd.address.subsystem_id = self._subsystem.ident.address.subsystem_id
+        cmd.address.node_id = 255
+        cmd.address.component_id = 255
         if self._widget.button_control.isChecked():
             cmd.access_control = 12
         elif self._widget.button_view.isChecked():
