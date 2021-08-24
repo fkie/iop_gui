@@ -40,7 +40,7 @@ class Client(QObject):
         :param caller_ns: the namespace of the client used to create handoff topics
         '''
         QObject.__init__(self)
-        jaus_address = JausAddress(subsystem_id, node_id, 0)
+        jaus_address = JausAddress(subsystem_id, node_id, 255)
         self._address = Address(jaus_address)
         self._subsystem_restricted = 65535
         self._only_monitor = False

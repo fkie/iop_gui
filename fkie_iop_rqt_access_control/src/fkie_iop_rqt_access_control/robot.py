@@ -130,7 +130,7 @@ class Robot(QObject):
         Click on control robot button. Change to controlled or monitor state.
         Publishes the signals: control_activated or view_activated.
         '''
-        addr = Address(JausAddress(self._subsystem.ident.address.subsystem_id, 0, 0))
+        addr = Address(JausAddress(self._subsystem.ident.address.subsystem_id, 255, 255))
         if checked:
             self._widget.button_view.setChecked(checked)
             self.control_activated.emit(addr)
@@ -148,7 +148,7 @@ class Robot(QObject):
         Click on view robot button. Change to monitor or not controlled state.
         Publishes the signals: view_activated or control_deactivated.
         '''
-        addr = Address(JausAddress(self._subsystem.ident.address.subsystem_id, 0, 0))
+        addr = Address(JausAddress(self._subsystem.ident.address.subsystem_id, 255, 255))
         if checked:
             self._widget.button_view.setChecked(checked)
             self.view_activated.emit(addr)
@@ -176,6 +176,8 @@ class Robot(QObject):
         cmd.authority = self._settings.authority
         cmd.name = self.name
         cmd.address.subsystem_id = self._subsystem.ident.address.subsystem_id
+        cmd.address.node_id = 255
+        cmd.address.component_id = 255
         if self._widget.button_control.isChecked():
             cmd.access_control = 12
         elif self._widget.button_view.isChecked():
@@ -186,6 +188,8 @@ class Robot(QObject):
             cmd.ocu_client = self.ocu_client.address
         else:
             cmd.ocu_client.subsystem_id = 65535
+            cmd.ocu_client.node_id = 255
+            cmd.ocu_client.component_id = 255
         return cmd
 
     def update(self, subsystem):
