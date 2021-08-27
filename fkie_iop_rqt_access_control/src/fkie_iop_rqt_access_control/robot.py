@@ -137,7 +137,7 @@ class Robot(QObject):
         Click on control robot button. Change to controlled or monitor state.
         Publishes the signals: control_activated or view_activated.
         '''
-        addr = Address(JausAddress(subsystem_id=self._subsystem.ident.address.subsystem_id, node_id=0, component_id=0))
+        addr = Address(JausAddress(subsystem_id=self._subsystem.ident.address.subsystem_id, node_id=255, component_id=255))
         if checked:
             self._widget.button_view.setChecked(checked)
             self.control_activated.emit(addr)
@@ -155,7 +155,7 @@ class Robot(QObject):
         Click on view robot button. Change to monitor or not controlled state.
         Publishes the signals: view_activated or control_deactivated.
         '''
-        addr = Address(JausAddress(subsystem_id=self._subsystem.ident.address.subsystem_id, node_id=0, component_id=0))
+        addr = Address(JausAddress(subsystem_id=self._subsystem.ident.address.subsystem_id, node_id=255, component_id=255))
         if checked:
             self._widget.button_view.setChecked(checked)
             self.view_activated.emit(addr)

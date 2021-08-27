@@ -224,10 +224,10 @@ class AccessControlClient(Plugin):
         # create command for new robot and try to find the view ocu client for deactivated control
         cmd = OcuCmd()
         for robot in self._robotlist:
-            if robot.subsystem_id in deactivated_robot_id:
-                robot.ocu_client = self.get_client_for_view(deactivated_robot_id)
-                if robot.ocu_client is not None:
-                    robot.activate_view()
+            # if robot.subsystem_id in deactivated_robot_id:
+            #     robot.ocu_client = self.get_client_for_view(deactivated_robot_id)
+            #     if robot.ocu_client is not None:
+            #         robot.activate_view()
             cmd_entry = robot.state_to_cmd()
             cmd.cmds.append(cmd_entry)
         self.settings.publish_cmd(cmd)

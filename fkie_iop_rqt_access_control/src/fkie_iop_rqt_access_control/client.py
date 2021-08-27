@@ -41,7 +41,7 @@ class Client(QObject):
         '''
         QObject.__init__(self)
         self._node = node
-        jaus_address = JausAddress(subsystem_id=subsystem_id, node_id=node_id, component_id=0)
+        jaus_address = JausAddress(subsystem_id=subsystem_id, node_id=node_id, component_id=255)
         self._address = Address(jaus_address)
         self._subsystem_restricted = 65535
         self._only_monitor = False
