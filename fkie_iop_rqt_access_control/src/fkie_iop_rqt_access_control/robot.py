@@ -57,6 +57,8 @@ class Robot(QObject):
         self._warnings = []
         self._feedback_warnings = dict()
         self._ocu_client = None
+        # address reported by access control client
+        self._control_addr = Address(JausAddress())
         self._warning_dialog = self._create_warning_dialog()
         self._detailed_dialog = self._create_detailed_dialog()
         self.handoff_dialog = HandoffDialog(self.name, self.subsystem_id, self._settings, self._widget)
@@ -121,6 +123,15 @@ class Robot(QObject):
             if self._ocu_client.subsystem_restricted == self.subsystem_id:
                 return self._ocu_client
         return None
+
+    @property
+    def control_addr(self):
+        return self._control_addr
+
+    @control_addr.setter
+    def control_addr(self, address):
+        self._control_addr = address
+        self._update_warnings_button()
 
     def set_control_active(self, state):
         self._widget.button_control.setEnabled(state)
@@ -225,6 +236,8 @@ class Robot(QObject):
                 else:
                     add_info = ' [restricted]'
             client_info = "OCU client: %s%s" % (self.ocu_client.address, add_info)
+        elif self.control_addr.subsystem_id != 0:
+            client_info = 'Controlled by other OCU: %s' % self.control_addr
         self._detailed_dialog.label_info.setText(client_info)
         if self.name == self._subsystem.ident.name:
             for node in self._subsystem.nodes:
@@ -298,6 +311,9 @@ class Robot(QObject):
         elif self.has_view():
             self._widget.button_control.setStyleSheet("QPushButton { background-color: None;}")
             self._widget.button_view.setStyleSheet("QPushButton { background-color: #98FB98;}")
+        elif self.control_addr.subsystem_id != 0 and (self._ocu_client is None or self.control_addr.subsystem_id != self._ocu_client.subsystem_id):
+            self._widget.button_control.setStyleSheet("QPushButton { background-color: #A9A9A9;}")
+            self._widget.button_view.setStyleSheet("QPushButton { background-color: None;}")
         else:
             self._widget.button_control.setStyleSheet("QPushButton { background-color: None;}")
             self._widget.button_view.setStyleSheet("QPushButton { background-color: None;}")

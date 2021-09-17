@@ -124,7 +124,7 @@ class Client(QObject):
         '''
         if not isinstance(feedback, OcuFeedback):
             raise TypeError("Client.apply() expects fkie_iop_msgs/OcuFeedback, got %s" % type(feedback))
-        jaus_address = JausAddress(feedback.reporter.subsystem_id, feedback.reporter.node_id, 0)
+        jaus_address = JausAddress(feedback.reporter.subsystem_id, feedback.reporter.node_id, 255)
         if self._address != Address(jaus_address):
             return False
         # change the controlled subsystem only once to avoid glint
@@ -205,7 +205,7 @@ class Client(QObject):
         if isinstance(other, Client):
             return self.address == other.address
         elif isinstance(other, (JausAddress, Address)):
-            return self.address == JausAddress(other.subsystem_id, other.node_id, 0)
+            return self.address == JausAddress(other.subsystem_id, other.node_id, 255)
         return False
 
     def __ne__(self, other):
@@ -214,12 +214,12 @@ class Client(QObject):
         if isinstance(other, Client):
             return not(self.address == other.address)
         elif isinstance(other, (JausAddress, Address)):
-            return not (self.address == JausAddress(other.subsystem_id, other.node_id, 0))
+            return not (self.address == JausAddress(other.subsystem_id, other.node_id, 255))
         return True
 
     def __lt__(self, other):
         if isinstance(other, Client):
             return self.address < other.address
         elif isinstance(other, (JausAddress, Address)):
-            return self.address < JausAddress(other.subsystem_id, other.node_id, 0)
+            return self.address < JausAddress(other.subsystem_id, other.node_id, 255)
         raise TypeError("Client.__lt__() expects Client, JausAddress or Address, got %s" % type(other))

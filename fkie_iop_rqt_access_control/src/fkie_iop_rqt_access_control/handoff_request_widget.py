@@ -58,14 +58,14 @@ class HandoffRequestWidget(QWidget):
         self.button_wait.clicked.connect(self._on_wait)
         self.button_deny.clicked.connect(self._on_deny)
         self.ocu_address = Address(request.ocu)
-        self.label_requester.setText("Requester: %s" % self.ocu_address)
+        self.label_requester.setText("Requester: %s for %s" % (self.ocu_address, str(Address(request.component))))
         self.label_reason.setText("Reason: %s" % request.explanation)
         self._last_update = rospy.Time.now()
         self._current_state = self.STATE_NONE
         self._active = True
 
     def __hash__(self):
-        return hash(self.ocu_address)
+        return hash(str(self.ocu_address) + str(self._request.component))
 
     def __eq__(self, other):
         result = self.__hash__() == other.__hash__()
