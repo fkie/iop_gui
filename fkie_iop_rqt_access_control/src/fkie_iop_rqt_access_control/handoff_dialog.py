@@ -118,7 +118,7 @@ class HandoffDialog(QDialog):
             cmd.request = True
             cmd.authority_code = self._settings.authority
             cmd.explanation = self.lineEdit_explanation.text()
-            cmd.component = addr
+            cmd.component = addr.msg
             if self._client is not None:
                 self._client.publish_handoff_request(cmd)
         self._on_request = True
@@ -137,7 +137,7 @@ class HandoffDialog(QDialog):
             cmd.request = False
             cmd.authority_code = self._settings.authority
             cmd.explanation = self.lineEdit_explanation.text()
-            cmd.component = Address(service_info.addr_control)
+            cmd.component = service_info.addr_control
             if self._client is not None:
                 self._client.publish_handoff_request(cmd)
         self._on_request = False

@@ -91,6 +91,7 @@ class AccessControlClient(Plugin):
         self.settings = Settings(self._node)
         self.settings.signal_system.connect(self.signal_callback_subsystem)
         self.settings.signal_feedback.connect(self.signal_callback_feedback)
+        self.settings.signal_control_report.connect(self.signal_callback_control_report)
         self.settings.signal_ident.connect(self.signal_callback_ident)
         # rospy.on_shutdown(self.on_ros_shutdown)
         self._update_timer = self._node.create_timer(5.0, self._update_robot_timer)
@@ -139,18 +140,18 @@ class AccessControlClient(Plugin):
                 if not added:
                     self._widget.layout_robots.addWidget(robot.get_widget())
 
-    def signal_callback_feedback(self, control_feedback, caller_ns):
+    def signal_callback_feedback(self, control_feedback):
         '''
         apply feedback to the clients
         '''
         # find the existing client or create a new one
         client = None
-        caddr = Address(JausAddress(subsystem_id=control_feedback.reporter.subsystem_id, node_id=control_feedback.reporter.node_id, component_id=0))
+        caddr = Address(JausAddress(subsystem_id=control_feedback.reporter.subsystem_id, node_id=control_feedback.reporter.node_id, component_id=255))
         try:
             index = self._clients.index(caddr)
             client = self._clients[index]
         except ValueError:
-            client = Client(self._node, caddr.subsystem_id, caddr.node_id, caller_ns)
+            client = Client(self._node, caddr.subsystem_id, caddr.node_id, self._node.get_namespace())
             client.signal_handoff_request.connect(self.signal_handoff_request)
             client.signal_handoff_response.connect(self.signal_handoff_response)
             self._clients.append(client)
@@ -164,6 +165,17 @@ class AccessControlClient(Plugin):
         # handle feedback of OCU clients
         for robot in self._robotlist:
             robot.update_feedback_warnings()
+
+    def signal_callback_control_report(self, control_report):
+        '''
+        apply feedback to the clients
+        '''
+        # find the existing client or create a new one
+        cmpaddr = Address(JausAddress(subsystem_id=control_report.component.subsystem_id, node_id=control_report.component.node_id, component_id=control_report.component.component_id))
+        ctrladdr = Address(JausAddress(subsystem_id=control_report.controller.subsystem_id, node_id=control_report.controller.node_id, component_id=control_report.controller.component_id))
+        for robot in self._robotlist:
+            if robot.subsystem_id == cmpaddr.subsystem_id:
+                robot.control_addr = ctrladdr
 
     def signal_callback_ident(self, ident):
         # update robot alive

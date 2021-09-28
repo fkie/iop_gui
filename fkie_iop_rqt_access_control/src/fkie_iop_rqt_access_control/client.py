@@ -51,10 +51,10 @@ class Client(QObject):
         self._has_control_access = False
         self.handoff_supported = True
         self.control_subsystem = -1  # this value is set by robot.py
-        self._topic_handoff_own_request = '%shandoff_own_request' % caller_ns
-        self._topic_handoff_own_response = '%shandoff_own_response' % caller_ns
-        self._topic_handoff_remote_request = '%shandoff_remote_request' % caller_ns
-        self._topic_handoff_remote_response = '%shandoff_remote_response' % caller_ns
+        self._topic_handoff_own_request = '%s/handoff_own_request' % caller_ns
+        self._topic_handoff_own_response = '%s/handoff_own_response' % caller_ns
+        self._topic_handoff_remote_request = '%s/handoff_remote_request' % caller_ns
+        self._topic_handoff_remote_response = '%s/handoff_remote_response' % caller_ns
         self._pub_handoff_own_request = self._node.create_publisher(HandoffRequest, self._topic_handoff_own_request, 10)
         self._pub_handoff_own_response = self._node.create_publisher(HandoffResponse, self._topic_handoff_own_response, 10)
         self._sub_handoff_remote_request = self._node.create_subscription(HandoffRequest, self._topic_handoff_remote_request, self._callback_handoff_remote_request, 10)
@@ -125,7 +125,7 @@ class Client(QObject):
         '''
         if not isinstance(feedback, OcuFeedback):
             raise TypeError("Client.apply() expects fkie_iop_msgs/OcuFeedback, got %s" % type(feedback))
-        jaus_address = JausAddress(subsystem_id=feedback.reporter.subsystem_id, node_id=feedback.reporter.node_id, component_id=0)
+        jaus_address = JausAddress(subsystem_id=feedback.reporter.subsystem_id, node_id=feedback.reporter.node_id, component_id=255)
         if self._address != Address(jaus_address):
             return False
         # change the controlled subsystem only once to avoid glint
@@ -206,7 +206,7 @@ class Client(QObject):
         if isinstance(other, Client):
             return self.address == other.address
         elif isinstance(other, (JausAddress, Address)):
-            return self.address == JausAddress(subsystem_id=other.subsystem_id, node_id=other.node_id, component_id=0)
+            return self.address == JausAddress(subsystem_id=other.subsystem_id, node_id=other.node_id, component_id=255)
         return False
 
     def __ne__(self, other):
@@ -215,12 +215,12 @@ class Client(QObject):
         if isinstance(other, Client):
             return not(self.address == other.address)
         elif isinstance(other, (JausAddress, Address)):
-            return not (self.address == JausAddress(subsystem_id=other.subsystem_id, node_id=other.node_id, component_id=0))
+            return not (self.address == JausAddress(subsystem_id=other.subsystem_id, node_id=other.node_id, component_id=255))
         return True
 
     def __lt__(self, other):
         if isinstance(other, Client):
             return self.address < other.address
         elif isinstance(other, (JausAddress, Address)):
-            return self.address < JausAddress(subsystem_id=other.subsystem_id, node_id=other.node_id, component_id=0)
+            return self.address < JausAddress(subsystem_id=other.subsystem_id, node_id=other.node_id, component_id=255)
         raise TypeError("Client.__lt__() expects Client, JausAddress or Address, got %s" % type(other))

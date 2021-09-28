@@ -28,7 +28,7 @@ import os
 import time
 
 from std_srvs.srv import Empty
-from fkie_iop_msgs.msg import Identification, OcuFeedback, System, OcuCmd
+from fkie_iop_msgs.msg import Identification, OcuFeedback, System, OcuCmd, OcuControlReport
 from .topic_info import TopicInfo
 
 
@@ -37,8 +37,9 @@ class Settings(QObject):
     Provides a configuration dialog and topic management.
     '''
     signal_system = Signal(System)
-    signal_feedback = Signal(OcuFeedback, str)
+    signal_feedback = Signal(OcuFeedback)
     signal_ident = Signal(Identification)
+    signal_control_report = Signal(OcuControlReport)
 
     def __init__(self, node:rclpy.node.Node):
         QObject.__init__(self)
@@ -55,6 +56,7 @@ class Settings(QObject):
         self._topic_identification = '/iop_identification'
         self._topic_cmd = '/ocu_cmd'
         self._topic_feedback = '/ocu_feedback'
+        self._topic_control_report = '/ocu_control_report'
         self._authority = 205
         self._namespace = '/'
         self._handoff_autorequest = False
@@ -62,6 +64,7 @@ class Settings(QObject):
 
         self._pub_cmd = None
         self._sub_feedback = None
+        self._sub_control_report = None
         self._sub_ident = None
         self._sub_system = None
 
@@ -83,13 +86,10 @@ class Settings(QObject):
             self._pub_cmd.publish(cmd)
 
     def _callback_ocu_feedback(self, control_feedback):
-        ns = '/'
-        try:
-            caller = control_feedback._connection_header['callerid']
-            ns = os.path.dirname(caller)
-        except Exception:
-            pass
-        self.signal_feedback.emit(control_feedback, ns)
+        self.signal_feedback.emit(control_feedback)
+
+    def _callback_ocu_control_report(self, control_report):
+        self.signal_control_report.emit(control_report)
 
     def _callback_ocu_ident(self, ident):
         self.signal_ident.emit(ident)
@@ -122,6 +122,7 @@ class Settings(QObject):
         instance_settings.set_value('iop_identification', self._topic_identification)
         instance_settings.set_value('ocu_cmd', self._topic_cmd)
         instance_settings.set_value('ocu_feedback', self._topic_feedback)
+        instance_settings.set_value('ocu_control_report', self._topic_control_report)
 
     def restore_settings(self, plugin_settings, instance_settings):
 
@@ -140,6 +141,7 @@ class Settings(QObject):
         self._topic_identification = instance_settings.value('iop_identification', '/iop_identification')
         self._topic_cmd = instance_settings.value('ocu_cmd', '/ocu_cmd')
         self._topic_feedback = instance_settings.value('ocu_feedback', '/ocu_feedback')
+        self._topic_control_report = instance_settings.value('ocu_control_report', '/ocu_control_report')
         self.reinitRosComm()
 
     def trigger_configuration(self):
@@ -166,6 +168,7 @@ class Settings(QObject):
         ti.fill_published_topics(self.dialog_config.comboBox_identification_topic, "fkie_iop_msgs/msg/Identification", self._topic_identification)
         ti.fill_subscribed_topics(self.dialog_config.comboBox_cmd_topic, "fkie_iop_msgs/msg/OcuCmd", self._topic_cmd)
         ti.fill_published_topics(self.dialog_config.comboBox_feedback_topic, "fkie_iop_msgs/msg/OcuFeedback", self._topic_feedback)
+        ti.fill_published_topics(self.dialog_config.comboBox_control_topic, "fkie_iop_msgs/OcuControlReport", self._topic_control_report)
         # stop on cancel pressed
         if not self.dialog_config.exec_():
             return
@@ -187,7 +190,9 @@ class Settings(QObject):
             self.dialog_config.comboBox_cmd_topic.setCurrentText(newname)
             newname = self._replace_namespace(self._topic_feedback, self._current_namespace)
             self.dialog_config.comboBox_feedback_topic.setCurrentText(newname)
-
+            newname = self._replace_namespace(self._topic_control_report, self._current_namespace)
+            self.dialog_config.comboBox_control_topic.setCurrentText(newname)
+ 
     def _replace_namespace(self, topic, newns):
         return os.path.join(newns, topic.split(os.path.sep)[-1])
 
@@ -203,6 +208,7 @@ class Settings(QObject):
         self._topic_identification = self.dialog_config.comboBox_identification_topic.currentText()
         self._topic_cmd = self.dialog_config.comboBox_cmd_topic.currentText()
         self._topic_feedback = self.dialog_config.comboBox_feedback_topic.currentText()
+        self._topic_control_report = self.dialog_config.comboBox_control_topic.currentText()
         self.reinitRosComm()
 
     def reinitRosComm(self):
@@ -216,6 +222,8 @@ class Settings(QObject):
             self._sub_feedback = self._node.create_subscription(OcuFeedback, self._topic_feedback, self._callback_ocu_feedback, self.qos_profile_latched())
         if self._sub_ident is None:
             self._sub_ident = self._node.create_subscription(Identification, self._topic_identification, self._callback_ocu_ident, 10)
+        if self._sub_control_report is None:
+            self._sub_control_report = self._node.create_subscription(OcuControlReport, self._topic_control_report, self._callback_ocu_control_report, 10)
 
     def qos_profile_latched(self):
         '''
@@ -235,6 +243,9 @@ class Settings(QObject):
         if self._sub_feedback is not None:
             self._sub_feedback.destroy()
             self._sub_feedback = None
+        if self._sub_control_report is not None:
+            self._sub_control_report.destroy()
+            self._sub_control_report = None
         if self._sub_ident is not None:
             self._sub_ident.destroy()
             self._sub_ident = None
