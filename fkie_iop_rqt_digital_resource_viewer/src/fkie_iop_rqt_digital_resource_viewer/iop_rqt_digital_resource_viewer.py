@@ -95,6 +95,7 @@ class DigitalResourceViewer(Plugin):
         self._publisher_resource_id = None
         self._publisher_current_video_url = None
         self._publisher_played_urls = []
+        self._publisher_video = None
         self._endpoints = None
         self._resource_names = {}
         self.signal_topic_endpoints.connect(self.signal_callback_endpoints)
@@ -160,11 +161,11 @@ class DigitalResourceViewer(Plugin):
         self._topic_resource_id = instance_settings.value('topic_resource_id', rospy.names.ns_join(rospy.get_namespace(), 'dv_resource_id'))
         rtsp_over_tcp = instance_settings.value('rtps_over_tcp', self._rtsp_over_tcp)
         self._use_multiple_urls = instance_settings.value('use_multi_url', self._use_multiple_urls)
-        if isinstance(self._use_multiple_urls, str):
-            self._use_multiple_urls = self._use_multiple_urls.lower() in ("yes", "true", "t", "1")
+        if not isinstance(self._use_multiple_urls, bool):
+            self._use_multiple_urls = self._use_multiple_urls.lower() in ("yes", "true", "t", "1", 1)
         self._use_vlc = instance_settings.value('use_internal_vlc', self._use_vlc)
-        if isinstance(self._use_vlc, str):
-            self._use_vlc = self._use_vlc.lower() in ("yes", "true", "t", "1")
+        if not isinstance(self._use_vlc, bool):
+            self._use_vlc = self._use_vlc.lower() in ("yes", "true", "t", "1", 1)
         if not self._use_multiple_urls:
             self._widget.videoFrame.setVisible(self._use_vlc)
         else:
@@ -192,6 +193,7 @@ class DigitalResourceViewer(Plugin):
                 self._publisher_resource_id = rospy.Publisher(self._topic_resource_id, UInt16, latch=True, queue_size=3)
         if self._topic_video_url:
             self._topic_video_url = rosgraph.names.script_resolve_name('rostopic', self._topic_video_url)
+            self._publisher_video = rospy.Publisher(self._topic_video_url, String, latch=True, queue_size=3)
 
     def shutdownRosComm(self):
         if self._subscriber_endpoints:
@@ -206,6 +208,9 @@ class DigitalResourceViewer(Plugin):
         if self._publisher_current_video_url:
             self._publisher_current_video_url.unregister()
             self._publisher_current_video_url = None
+        if self._publisher_video:
+            self._publisher_video.unregister()
+            self._publisher_video = None
 
     def callback_endpoints(self, msg):
         self.signal_topic_endpoints.emit(msg)
@@ -237,15 +242,19 @@ class DigitalResourceViewer(Plugin):
         if self._cam_list:
             new_cam_list = []
             for cam in self._cam_list:
-                self._layout_buttons.removeWidget(cam)
-                if not cam.is_in(endpoints):
-                    cam.setParent(None)
-                    # remove publisher if exists for this cam id
-                    if cam.get_url() in self._publisher:
-                        self._publisher[cam.get_url()].unregister()
-                        del self._publisher[cam.get_url()]
-                else:
-                    new_cam_list.append(cam)
+                try:
+                    self._layout_buttons.removeWidget(cam)
+                    if not cam.is_in(endpoints):
+                        cam.setParent(None)
+                        # remove publisher if exists for this cam id
+                        if cam.get_url() in self._publisher:
+                            self._publisher[cam.get_url()].unregister()
+                            del self._publisher[cam.get_url()]
+                    else:
+                        new_cam_list.append(cam)
+                except Exception:
+                    import traceback
+                    rospy.logwarn(traceback.format_exc())
             self._cam_list = new_cam_list
         for endpoint in endpoints:
             new_cam = Cam(endpoint, self._get_resource_name(endpoint.resource_id))
@@ -287,14 +296,17 @@ class DigitalResourceViewer(Plugin):
                 self._current_cam = self.sender()
         except rospy.ServiceException as e:
             rospy.logwarn("Can not play url %s: %s" % (url, e))
-        if url and url in self._publisher:
-            self._publisher[url].publish(url)
+        if url:
+            if url in self._publisher:
+                self._publisher[url].publish(url)
             self._publisher_played_urls.append(url)
             ros_msg = UInt16()
             ros_msg.data = resource_id
             self._publisher_resource_id.publish(ros_msg)
+            self._publisher_video.publish(url)
         else:
             rospy.logwarn("Publisher for URI: '%s' while play not found!" % url)
+            self._publisher_video.publish("")
 
     def stop(self, url, resource_id):
         rospy.loginfo("stop: %s" % url)
@@ -310,6 +322,7 @@ class DigitalResourceViewer(Plugin):
             self._publisher_played_urls.remove(url)
         else:
             rospy.logwarn("Publisher for URI: '%s' while stop not found!" % url)
+        self._publisher_video.publish("")
 
     def stop_current(self, ignore_url=''):
         if self._current_cam is not None:
