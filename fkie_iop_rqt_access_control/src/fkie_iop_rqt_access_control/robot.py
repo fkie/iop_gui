@@ -37,7 +37,7 @@ from .handoff_dialog import HandoffDialog
 
 class Robot(QObject):
 
-    MAX_AGE = 120
+    MAX_AGE = 30
 
     control_activated = Signal(Address)
     control_deactivated = Signal(Address)
