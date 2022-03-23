@@ -1,0 +1,35 @@
+<package format="2">
+  <name>fkie_iop_mapviz_plugins</name>
+  <version>0.1.0</version>
+  <description>
+
+    Plugins for the Mapviz visualization tool.
+    Get access control for an IOP compliant robot.
+
+  </description>
+  <author>Alexander Tiderko</author>
+  <maintainer email="alexander.tiderko@fkie.fraunhofer.de">Alexander Tiderko</maintainer>
+  <license>Apache-2.0</license>
+  <url type="website">https://github.com/fkie/iop_gui</url>
+
+  <build_depend>libqt5-opengl-dev</build_depend>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>fkie_iop_msgs</depend>
+  <depend>jaustoolset</depend>
+  <depend>libqt5-core</depend>
+  <depend>libqt5-gui</depend>
+  <depend>libqt5-opengl</depend>
+  <depend>libqt5-widgets</depend>
+  <depend>mapviz</depend>
+  <depend>pluginlib</depend>
+  <depend>roscpp</depend>
+
+  <export>
+    <mapviz plugin="${prefix}/plugin.xml" />
+  </export>
+
+</package>
+
+

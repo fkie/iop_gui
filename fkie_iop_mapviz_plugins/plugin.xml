@@ -1,0 +1,6 @@
+<library path="lib/libfkie_iop_mapviz_plugins">
+  <class name="fkie_iop_mapviz_plugins/iop_access_control" type="fkie_iop_mapviz_plugins::AccessControlPlugin" base_class_type="mapviz::MapvizPlugin">
+    <description>Get access control for an IOP compliant robot.</description>
+  </class>
+</library>
+
