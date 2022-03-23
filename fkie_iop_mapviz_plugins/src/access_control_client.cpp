@@ -140,7 +140,6 @@ namespace fkie_iop_mapviz_plugins
       }
       std::map<JausAddress, std::vector<fkie_iop_msgs::OcuServiceInfo> >::iterator itn;
       for (itn = ocu_nodes_.begin(); itn != ocu_nodes_.end(); ++itn) {
-          ROS_INFO("  %s", itn->first.str().c_str());
           JausAddress address = itn->first;
           std::vector<fkie_iop_msgs::OcuServiceInfo>::iterator its;
           for (its = itn->second.begin(); its != itn->second.end(); ++its) {
