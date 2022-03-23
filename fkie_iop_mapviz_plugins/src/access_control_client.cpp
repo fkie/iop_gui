@@ -56,7 +56,7 @@ namespace fkie_iop_mapviz_plugins
 
   AccessControlClient::~AccessControlClient()
   {
-    ROS_INFO("delete access control client %d.%d", address_.getSubsystemID(), address_.getNodeID());
+    ROS_INFO("IOP access control: delete access control client %d.%d", address_.getSubsystemID(), address_.getNodeID());
     pub_handoff_own_request_.shutdown();
     pub_handoff_own_response_.shutdown();
     sub_handoff_remote_request_.shutdown();
@@ -140,7 +140,6 @@ namespace fkie_iop_mapviz_plugins
       }
       std::map<JausAddress, std::vector<fkie_iop_msgs::OcuServiceInfo> >::iterator itn;
       for (itn = ocu_nodes_.begin(); itn != ocu_nodes_.end(); ++itn) {
-          ROS_INFO("get_warnings");
           ROS_INFO("  %s", itn->first.str().c_str());
           JausAddress address = itn->first;
           std::vector<fkie_iop_msgs::OcuServiceInfo>::iterator its;

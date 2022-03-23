@@ -151,7 +151,6 @@ namespace fkie_iop_mapviz_plugins
   void AccessControlPlugin::onIopSystem(boost::shared_ptr<const fkie_iop_msgs::System_<std::allocator<void> > > msg)
   {
     settings_.printInfo("system update received");
-    ROS_INFO("system update received");
 //    fkie_iop_msgs::System* msg = system.value<fkie_iop_msgs::System*>();
     for (size_t i = 0; i != msg->subsystems.size(); i++) {
       bool updated = false;
@@ -270,7 +269,6 @@ namespace fkie_iop_mapviz_plugins
    **/
   void AccessControlPlugin::onRobotControlActivated(JausAddress address)
   {
-    ROS_INFO("onRobotControlActivated");
     AccessControlClient* control_ocu = getClientForControl(address.getSubsystemID());
     //control_client_ = control_ocu;
     std::vector<int> deactivated_robot_id;
@@ -473,7 +471,6 @@ namespace fkie_iop_mapviz_plugins
 
   void AccessControlPlugin::releaseAll()
   {
-    ROS_INFO("Release all");
       fkie_iop_msgs::OcuCmd cmd;
       std::vector<AccessControlRobot *>::iterator itr;
       for (itr = robotlist_.begin(); itr != robotlist_.end(); ++itr) {

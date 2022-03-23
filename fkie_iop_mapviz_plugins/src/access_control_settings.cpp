@@ -47,7 +47,7 @@ namespace fkie_iop_mapviz_plugins
 
   AccessControlSettings::~AccessControlSettings()
   {
-    ROS_INFO("delete access control settings");
+    ROS_INFO("IOP access control: delete access control settings");
     delete node_ns_;
   }
 
@@ -71,15 +71,15 @@ namespace fkie_iop_mapviz_plugins
       if (node_ns_ == NULL) {
         node_ns_ = new ros::NodeHandle(namespace_.c_str());
         pub_cmd_ = node_ns_->advertise<fkie_iop_msgs::OcuCmd>(topic_command_, 1, true);
-        ROS_INFO("Advertising %s", pub_cmd_.getTopic().c_str());
+        ROS_INFO("IOP access control: advertising %s", pub_cmd_.getTopic().c_str());
         sub_discovery_ = node_ns_->subscribe<fkie_iop_msgs::System>(topic_discovery_, 100, &AccessControlSettings::callbackIopSystem, this);
-        ROS_INFO("Subscribing to %s", sub_discovery_.getTopic().c_str());
+        ROS_INFO("IOP access control: subscribing to %s", sub_discovery_.getTopic().c_str());
         sub_feedback_ = node_ns_->subscribe(topic_feedback_, 5, &AccessControlSettings::callbackIopFeedback, this);
-        ROS_INFO("Subscribing to %s", sub_feedback_.getTopic().c_str());
+        ROS_INFO("IOP access control: subscribing to %s", sub_feedback_.getTopic().c_str());
         sub_identification_ = node_ns_->subscribe<fkie_iop_msgs::Identification>(topic_identification_, 100, &AccessControlSettings::callbackIopIdent, this);
-        ROS_INFO("Subscribing to %s", sub_identification_.getTopic().c_str());
+        ROS_INFO("IOP access control: subscribing to %s", sub_identification_.getTopic().c_str());
         sub_control_report_ = node_ns_->subscribe<fkie_iop_msgs::OcuControlReport>(topic_control_report_, 100, &AccessControlSettings::callbackIopControlReport, this);
-        ROS_INFO("Subscribing to %s", sub_control_report_.getTopic().c_str());
+        ROS_INFO("IOP access control: subscribing to %s", sub_control_report_.getTopic().c_str());
       }
   }
 
@@ -94,15 +94,12 @@ namespace fkie_iop_mapviz_plugins
 
   void AccessControlSettings::callbackIopSystem(const fkie_iop_msgs::System::ConstPtr& msg)
   {
-    //fkie_iop_msgs::System aha = msg.get();
-    //QVariant var = QVariant::fromValue(msg);
     signal_system(msg);
   }
 
   void AccessControlSettings::callbackIopFeedback(const ros::MessageEvent<const fkie_iop_msgs::OcuFeedback>& event)
   {
     const std::string& caller_ns = event.getPublisherName();
-    ROS_INFO("PUBLISHER NAME: %s", caller_ns.c_str());
     //const ros::M_string& header = event.getConnectionHeader();
     const fkie_iop_msgs::OcuFeedback::ConstPtr& msg = event.getMessage();    
     signal_feedback(msg, caller_ns);
@@ -198,7 +195,6 @@ namespace fkie_iop_mapviz_plugins
       node["autorequest"] >> autorequest;
       ui_.autorequest_cb->setChecked(autorequest);
     }
-    ROS_INFO("LOAD");
     initTopics();
   }
 
@@ -212,7 +208,6 @@ namespace fkie_iop_mapviz_plugins
 
     bool autorequest = ui_.autorequest_cb->isChecked();
     emitter << YAML::Key << "autorequest" << YAML::Value << autorequest;
-    ROS_INFO("SAVE");
     initTopics();
   }
 

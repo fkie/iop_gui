@@ -46,7 +46,7 @@ namespace fkie_iop_mapviz_plugins
 
   AccessControlDialog::~AccessControlDialog()
   {
-    ROS_INFO("delete access control dialog");
+    ROS_INFO("IOP access control: delete access control dialog");
     removeRobotWidgets();
   }
 

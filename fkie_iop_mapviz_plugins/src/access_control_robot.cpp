@@ -180,7 +180,7 @@ namespace fkie_iop_mapviz_plugins
 
   void AccessControlRobot::onRobotView(bool checked)
   {
-    ROS_INFO("switch view robot %s", name().c_str());
+    ROS_INFO("IOP access control: switch view robot %s", name().c_str());
     JausAddress addr(getSubsystemID(), 255, 255);
     if (checked) {
         ui_robot_.button_view->setChecked(checked);
@@ -196,7 +196,7 @@ namespace fkie_iop_mapviz_plugins
 
   void AccessControlRobot::onRobotControl(bool checked)
   {
-    ROS_INFO("switch control robot %s", name().c_str());
+    ROS_INFO("IOP access control: switch control robot %s", name().c_str());
     JausAddress addr(getSubsystemID(), 255, 255);
     if (checked) {
         ui_robot_.button_view->setChecked(checked);
