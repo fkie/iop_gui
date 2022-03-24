@@ -38,7 +38,7 @@ from .topic_info import TopicInfo
 try:
     import vlc
 except Exception as e:
-    rospy.logwarn("%s\nIf you will use internal vlc player install:\n sudo apt install vlc-nox" % e)
+    rospy.logwarn("%s\nIf you will use internal vlc player install:\n sudo apt install python3-vlc" % e)
     vlc = None
 
 
@@ -84,7 +84,7 @@ class DigitalResourceViewer(Plugin):
         context.add_widget(self._widget)
         self._publisher = {}  # resource url: topic
         self._use_multiple_urls = False
-        self._use_vlc = True
+        self._use_vlc = True and vlc is not None
         self.context = context
         self._topic_video_url = rospy.names.ns_join(rospy.get_namespace(), 'current_video_url')
         self._topic_endpoints = rospy.names.ns_join(rospy.get_namespace(), 'digital_endpoints')
@@ -166,6 +166,9 @@ class DigitalResourceViewer(Plugin):
         self._use_vlc = instance_settings.value('use_internal_vlc', self._use_vlc)
         if not isinstance(self._use_vlc, bool):
             self._use_vlc = self._use_vlc.lower() in ("yes", "true", "t", "1", 1)
+        if vlc is None:
+            self._use_vlc = False
+            rospy.logwarn('No python3-vlc installed, force use_vlc to False!')
         if not self._use_multiple_urls:
             self._widget.videoFrame.setVisible(self._use_vlc)
         else:
@@ -380,18 +383,23 @@ class DigitalResourceViewer(Plugin):
         self.reinitRosComm()
 
     def _create_vlc_player(self):
-        # creating a basic vlc instance
-        self.vlc_instance = vlc.Instance(self._rtsp_over_tcp)
-        # creating an empty vlc media player
-        self.mediaplayer = self.vlc_instance.media_player_new()
-        # the media player has to be 'connected' to the QFrame
-        # (otherwise a video would be displayed in it's own window)
-        # this is platform specific!
-        # you have to give the id of the QFrame (or similar object) to
-        # vlc, different platforms have different functions for this
-        if sys.platform.startswith('linux'):  # for Linux using the X Server
-            self.mediaplayer.set_xwindow(self._widget.videoFrame.winId())
-        elif sys.platform == "win32":  # for Windows
-            self.mediaplayer.set_hwnd(self._widget.videoFrame.winId())
-        elif sys.platform == "darwin":  # for MacOS
-            self.mediaplayer.set_nsobject(int(self._widget.videoFrame.winId()))
+        try:
+            # creating a basic vlc instance
+            self.vlc_instance = vlc.Instance(self._rtsp_over_tcp)
+            # creating an empty vlc media player
+            self.mediaplayer = self.vlc_instance.media_player_new()
+            # the media player has to be 'connected' to the QFrame
+            # (otherwise a video would be displayed in it's own window)
+            # this is platform specific!
+            # you have to give the id of the QFrame (or similar object) to
+            # vlc, different platforms have different functions for this
+            if sys.platform.startswith('linux'):  # for Linux using the X Server
+                self.mediaplayer.set_xwindow(self._widget.videoFrame.winId())
+            elif sys.platform == "win32":  # for Windows
+                self.mediaplayer.set_hwnd(self._widget.videoFrame.winId())
+            elif sys.platform == "darwin":  # for MacOS
+                self.mediaplayer.set_nsobject(int(self._widget.videoFrame.winId()))
+        except Exception as e:
+            print('Error while create VLC instance: %s' % e)
+            print('Is "python3-vlc" installed?')
+            self._use_vlc = False
