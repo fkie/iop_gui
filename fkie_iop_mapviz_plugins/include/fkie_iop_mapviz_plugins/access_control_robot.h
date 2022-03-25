@@ -86,6 +86,7 @@ namespace fkie_iop_mapviz_plugins
     bool hasControl();
     bool hasView();
     void releaseControl();
+    void activateControl();
     void activateView();
     fkie_iop_msgs::OcuCmdEntry stateToCmd();
     AccessControlClient* ocuClientRestricted();

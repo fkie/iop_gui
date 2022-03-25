@@ -41,6 +41,7 @@ namespace fkie_iop_mapviz_plugins
     subsystem_restricted_(65535),
     only_monitor_(false),
     has_control_access_(false),
+    has_view_access_(false),
     handoff_supported_(false)
   {
     std::string topic_handoff_own_request = caller_ns + "/handoff_own_request";
@@ -89,6 +90,11 @@ namespace fkie_iop_mapviz_plugins
   bool AccessControlClient::hasControlAccess()
   {
     return has_control_access_;
+  }
+
+  bool AccessControlClient::hasViewAccess()
+  {
+    return has_view_access_;
   }
 
   bool AccessControlClient::isRestricted()
@@ -205,6 +211,7 @@ namespace fkie_iop_mapviz_plugins
     warnings_.clear();
     ins_autorithy_.clear();
     has_control_access_ = false;
+    has_view_access_ = false;
     handoff_supported_ = msg->handoff_supported;
     std::map<JausAddress, std::vector<fkie_iop_msgs::OcuServiceInfo> >::iterator itn;
     for (itn = ocu_nodes_.begin(); itn != ocu_nodes_.end(); ++itn) {
@@ -228,8 +235,13 @@ namespace fkie_iop_mapviz_plugins
           }
           ins_autorithy_[jaus_address].push_back(*its);
         }
-        if (state == 5) {  // see OcuServiceInfo for number
+        if (state == 3) {  // see OcuServiceInfo for number
           has_control_access_ = true;
+          control_subsystem = (*its).addr_control.subsystem_id;
+        }
+        if (state == 6) {  // see OcuServiceInfo for number
+          has_view_access_ = true;
+          control_subsystem = (*its).addr_control.subsystem_id;
         }
       }
     }

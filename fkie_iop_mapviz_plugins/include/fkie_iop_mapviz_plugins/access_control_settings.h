@@ -89,10 +89,10 @@ namespace fkie_iop_mapviz_plugins
     void publishCmd(fkie_iop_msgs::OcuCmd& cmd);
 
    Q_SIGNALS:
-    void signal_system(IopSystemPtr system);
-    void signal_feedback(IopOcuFeedbackPtr feedback, std::string caller_ns);
-    void signal_ident(IopIdentificationPtr ident);
-    void signal_control_report(IopControlReportPtr controller);
+    void signalSystem(IopSystemPtr system);
+    void signalFeedback(IopOcuFeedbackPtr feedback, std::string caller_ns);
+    void signalIdent(IopIdentificationPtr ident);
+    void signalControlReport(IopControlReportPtr controller);
 
 //   protected Q_SLOTS:
 

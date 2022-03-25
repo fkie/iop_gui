@@ -44,6 +44,9 @@
 // ROS libraries
 #include <ros/master.h>
 
+#include <mapviz/select_topic_dialog.h>
+#include <mapviz/select_frame_dialog.h>
+
 // IOP
 #include <Transport/JausAddress.h>
 
@@ -61,7 +64,8 @@ namespace fkie_iop_mapviz_plugins
     acdialog_(NULL),
     settings_(this->ui_),
     config_widget_(new QWidget()),
-    map_canvas_(NULL)
+    map_canvas_(NULL),
+    has_manual_actions_(false)
   {
     ui_.setupUi(config_widget_);
 
@@ -75,10 +79,17 @@ namespace fkie_iop_mapviz_plugins
     p3.setColor(QPalette::Text, Qt::red);
     ui_.status->setPalette(p3);
     settings_.printError("no system info received");
+    topics_.push_back("fkie_iop_msgs/OcuFedback");
+    topics_.push_back("fkie_iop_msgs/Identification");
+    topics_.push_back("fkie_iop_msgs/System");
+    QObject::connect(this, &AccessControlPlugin::VisibleChanged, this, &AccessControlPlugin::setVisible);
+    QObject::connect(ui_.selectns, SIGNAL(clicked()), this, SLOT(selectNS()));
+    QObject::connect(ui_.namespace_edit, SIGNAL(editingFinished()), this, SLOT(nsEdited()));
   }
 
   AccessControlPlugin::~AccessControlPlugin()
   {
+    releaseAll();
     if (map_canvas_) {
       map_canvas_->removeEventFilter(this);
     }
@@ -88,7 +99,32 @@ namespace fkie_iop_mapviz_plugins
     }
   }
 
-  void AccessControlPlugin::VisibilityChanged(bool visible)
+  void AccessControlPlugin::selectNS()
+  {
+    ros::master::TopicInfo topic = mapviz::SelectTopicDialog::selectTopic(topics_);
+    if (topic.name.empty())
+    {
+      return;
+    }
+
+    std::vector<std::string> tokens = split(topic.name, '/');
+    std::string ns;
+    for (size_t i = 0; i < tokens.size()-1; i++) {
+      ns += tokens[i] + "/";
+    }
+    ui_.namespace_edit->setText(QString::fromStdString(ns));
+    nsEdited();
+  }
+
+  void AccessControlPlugin::nsEdited()
+  {
+    if (!ui_.namespace_edit->text().endsWith('/')) {
+      ui_.namespace_edit->setText(ui_.namespace_edit->text().append('/'));
+    }
+    settings_.initTopics();
+  }
+
+  void AccessControlPlugin::setVisible(bool visible)
   {
     if (visible) {
       map_canvas_->installEventFilter(this);
@@ -132,10 +168,10 @@ namespace fkie_iop_mapviz_plugins
       QObject::connect(this, SIGNAL(VisibleChanged(bool)), this, SLOT(VisibilityChanged(bool)));
       QObject::connect(ui_.button_access_control, SIGNAL(clicked(bool)), this, SLOT(onShowAccessControl()));
       QObject::connect(ui_.button_release, SIGNAL(clicked(bool)), this, SLOT(releaseAll()));
-      QObject::connect(&settings_, SIGNAL(signal_system(IopSystemPtr)), this, SLOT(onIopSystem(IopSystemPtr)));
-      QObject::connect(&settings_, SIGNAL(signal_feedback(IopOcuFeedbackPtr, std::string)), this, SLOT(onIopFeedback(IopOcuFeedbackPtr, std::string)));
-      QObject::connect(&settings_, SIGNAL(signal_ident(IopIdentificationPtr)), this, SLOT(onIopIdent(IopIdentificationPtr)));
-      QObject::connect(&settings_, SIGNAL(signal_control_report(IopControlReportPtr, std::string)), this, SLOT(onIopControlReport(IopControlReportPtr, std::string)));
+      QObject::connect(&settings_, SIGNAL(signalSystem(IopSystemPtr)), this, SLOT(onIopSystem(IopSystemPtr)));
+      QObject::connect(&settings_, SIGNAL(signalFeedback(IopOcuFeedbackPtr, std::string)), this, SLOT(onIopFeedback(IopOcuFeedbackPtr, std::string)));
+      QObject::connect(&settings_, SIGNAL(signalIdent(IopIdentificationPtr)), this, SLOT(onIopIdent(IopIdentificationPtr)));
+      QObject::connect(&settings_, SIGNAL(signalControlReport(IopControlReportPtr)), this, SLOT(onIopControlReport(IopControlReportPtr)));
 
       timer_update_robots_ = new QTimer(this);
       QObject::connect(timer_update_robots_, SIGNAL(timeout()), this, SLOT(updateRobots()));
@@ -205,6 +241,19 @@ namespace fkie_iop_mapviz_plugins
       //self._clients.sort()
     }
     client->apply(msg);
+    if (!has_manual_actions_) {
+      if (client->hasControlAccess()) {
+        AccessControlRobot* robot = getRobot(client->control_subsystem);
+        if (robot != NULL) {
+          robot->activateControl();
+        }
+      } else if (client->hasViewAccess()) {
+        AccessControlRobot* robot = getRobot(client->control_subsystem);
+        if (robot != NULL) {
+          robot->activateView();
+        }
+      }
+    }
     ui_.ocu_clients->setText(std::to_string(clientlist_.size()).c_str());
     // handle feedback of OCU clients
     std::vector<AccessControlRobot *>::iterator itr;
@@ -269,6 +318,7 @@ namespace fkie_iop_mapviz_plugins
    **/
   void AccessControlPlugin::onRobotControlActivated(JausAddress address)
   {
+    has_manual_actions_ = true;
     AccessControlClient* control_ocu = getClientForControl(address.getSubsystemID());
     //control_client_ = control_ocu;
     std::vector<int> deactivated_robot_id;
@@ -339,6 +389,7 @@ namespace fkie_iop_mapviz_plugins
    **/
   void AccessControlPlugin::onRobotControlDeactivated(JausAddress address)
   {
+    has_manual_actions_ = true;
     fkie_iop_msgs::OcuCmd cmd;
     std::vector<AccessControlRobot *>::iterator it;
     for (it = robotlist_.begin(); it != robotlist_.end(); ++it) {
@@ -356,6 +407,7 @@ namespace fkie_iop_mapviz_plugins
 
   void AccessControlPlugin::onRobotViewActivated(JausAddress address)
   {
+    has_manual_actions_ = true;
     AccessControlClient* ocu_view_client = getClientForView(address.getSubsystemID());
     if (ocu_view_client != NULL) {
       fkie_iop_msgs::OcuCmd cmd;
@@ -374,6 +426,7 @@ namespace fkie_iop_mapviz_plugins
 
   void AccessControlPlugin::onRobotViewDeactivated(JausAddress address)
   {
+    has_manual_actions_ = true;
     fkie_iop_msgs::OcuCmd cmd;
     std::vector<AccessControlRobot *>::iterator it;
     for (it = robotlist_.begin(); it != robotlist_.end(); ++it) {
@@ -442,6 +495,17 @@ namespace fkie_iop_mapviz_plugins
     return NULL;
   }
 
+  AccessControlRobot* AccessControlPlugin::getRobot(int subsystem_id)
+  {
+    std::vector<AccessControlRobot *>::iterator itr;
+    for (itr = robotlist_.begin(); itr != robotlist_.end(); ++itr) {
+      if ((*itr)->getSubsystemID() == subsystem_id) {
+        return *itr;
+      }
+    }
+    return NULL;
+  }
+
   AccessControlClient* AccessControlPlugin::getClientForView(int subsystem)
   {
     // already assigned?
@@ -492,5 +556,17 @@ namespace fkie_iop_mapviz_plugins
   void AccessControlPlugin::SaveConfig(YAML::Emitter& emitter, const std::string& path)
   {
     settings_.saveConfig(emitter, path);
+  }
+
+  std::vector<std::string> AccessControlPlugin::split(const std::string& s, char delimiter)
+  {
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream tokenStream(s);
+    while (std::getline(tokenStream, token, delimiter))
+    {
+        tokens.push_back(token);
+    }
+    return tokens;
   }
 }

@@ -65,10 +65,9 @@ namespace fkie_iop_mapviz_plugins
       {
         namespace_ = ui_.namespace_edit->text().toStdString();
         shutdownTopics();
-        delete node_ns_;
-        node_ns_ = NULL;
       }
       if (node_ns_ == NULL) {
+        printError("no system info received");
         node_ns_ = new ros::NodeHandle(namespace_.c_str());
         pub_cmd_ = node_ns_->advertise<fkie_iop_msgs::OcuCmd>(topic_command_, 1, true);
         ROS_INFO("IOP access control: advertising %s", pub_cmd_.getTopic().c_str());
@@ -90,11 +89,15 @@ namespace fkie_iop_mapviz_plugins
       sub_identification_.shutdown();
       sub_feedback_.shutdown();
       sub_control_report_.shutdown();
+      if (node_ns_ != NULL) {
+        delete node_ns_;
+        node_ns_ = NULL;
+      }
   }
 
   void AccessControlSettings::callbackIopSystem(const fkie_iop_msgs::System::ConstPtr& msg)
   {
-    signal_system(msg);
+    signalSystem(msg);
   }
 
   void AccessControlSettings::callbackIopFeedback(const ros::MessageEvent<const fkie_iop_msgs::OcuFeedback>& event)
@@ -102,17 +105,17 @@ namespace fkie_iop_mapviz_plugins
     const std::string& caller_ns = event.getPublisherName();
     //const ros::M_string& header = event.getConnectionHeader();
     const fkie_iop_msgs::OcuFeedback::ConstPtr& msg = event.getMessage();    
-    signal_feedback(msg, caller_ns);
+    signalFeedback(msg, caller_ns);
   }
 
   void AccessControlSettings::callbackIopIdent(const fkie_iop_msgs::Identification::ConstPtr& msg)
   {
-    signal_ident(msg);
+    signalIdent(msg);
   }
 
   void AccessControlSettings::callbackIopControlReport(const fkie_iop_msgs::OcuControlReport::ConstPtr& msg)
   {
-    signal_control_report(msg);
+    signalControlReport(msg);
   }
 
   void AccessControlSettings::printError(const std::string& message)
@@ -208,7 +211,6 @@ namespace fkie_iop_mapviz_plugins
 
     bool autorequest = ui_.autorequest_cb->isChecked();
     emitter << YAML::Key << "autorequest" << YAML::Value << autorequest;
-    initTopics();
   }
 
   void AccessControlSettings::publishCmd(fkie_iop_msgs::OcuCmd& cmd)

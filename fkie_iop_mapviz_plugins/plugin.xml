@@ -2,5 +2,8 @@
   <class name="fkie_iop_mapviz_plugins/iop_access_control" type="fkie_iop_mapviz_plugins::AccessControlPlugin" base_class_type="mapviz::MapvizPlugin">
     <description>Get access control for an IOP compliant robot.</description>
   </class>
+  <class name="fkie_iop_mapviz_plugins/iop_digital_resource" type="fkie_iop_mapviz_plugins::DigitalResourcePlugin" base_class_type="mapviz::MapvizPlugin">
+    <description>Control digital resource on IOP compliant robot.</description>
+  </class>
 </library>
 

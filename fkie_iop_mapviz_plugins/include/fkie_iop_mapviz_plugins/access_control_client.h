@@ -67,6 +67,7 @@ namespace fkie_iop_mapviz_plugins
     int restrictedToSubsystem();
     bool onlyMonitor();
     bool hasControlAccess();
+    bool hasViewAccess();
     bool isRestricted();
     bool hasHandoffPublisher();
     std::map<JausAddress, std::vector<fkie_iop_msgs::OcuServiceInfo>> getWarnings(int subsystem=65535, bool has_control=false);
@@ -87,6 +88,7 @@ namespace fkie_iop_mapviz_plugins
     unsigned short subsystem_restricted_;
     bool only_monitor_;
     bool has_control_access_;
+    bool has_view_access_;
     bool handoff_supported_;
 
     std::map<JausAddress, std::vector<fkie_iop_msgs::OcuServiceInfo> > ocu_nodes_;  // address of ocu client : services

@@ -109,15 +109,17 @@ namespace fkie_iop_mapviz_plugins
       return true;
     }
 
-
    protected:
     /** @brief: Determine for a subsystem a free ocu client to request control. **/
     AccessControlClient* getClientForControl(int subsystem);
     /** @brief Determine for a subsystem a free ocu client to request monitoring of the sensor data. */
     AccessControlClient* getClientForView(int subsystem);
     AccessControlClient* getClient(JausAddress addr);
+    AccessControlRobot* getRobot(int subsystem_id);
 
    protected Q_SLOTS:
+    void selectNS();
+    void nsEdited();
     void onShowAccessControl();
     void releaseAll();
     void onFinishedAccessControl(int result);
@@ -134,24 +136,25 @@ namespace fkie_iop_mapviz_plugins
     void handoffRequest(fkie_iop_msgs::HandoffRequest request);
     void handoffResponse(fkie_iop_msgs::HandoffResponse response);
 
-    void VisibilityChanged(bool);
+    void setVisible(bool);
     void updateRobots();
 
    private:
     bool initialized_;
-    //ros::Timer timer_update_robots_;
     QTimer* timer_update_robots_;
 
     Ui::AccessControl ui_;
     AccessControlDialog* acdialog_;
     AccessControlSettings settings_;
 
-    // Ui::Robot ui_robot_;
     QWidget* config_widget_;
     mapviz::MapCanvas* map_canvas_;
+    bool has_manual_actions_;
 
+    std::vector<std::string> topics_;
     std::vector<AccessControlRobot *> robotlist_;
     std::vector<AccessControlClient *> clientlist_;
+    std::vector<std::string> split(const std::string& s, char delimiter);
   };
 }
 

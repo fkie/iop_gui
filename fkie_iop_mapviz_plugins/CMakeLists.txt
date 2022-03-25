@@ -62,6 +62,7 @@ set(UI_FILES
     ui/access_control_robot.ui
     ui/access_control_system_info.ui
     ui/access_control_warning_info.ui
+    ui/digital_resource_config.ui
 )
 
 set(SRC_FILES
@@ -70,6 +71,8 @@ set(SRC_FILES
     src/access_control_plugin.cpp
     src/access_control_robot.cpp
     src/access_control_settings.cpp
+    src/digital_resource_cam.cpp
+    src/digital_resource_plugin.cpp
 )
 
 set(HEADER_FILES
@@ -78,6 +81,8 @@ set(HEADER_FILES
     include/${PROJECT_NAME}/access_control_plugin.h
     include/${PROJECT_NAME}/access_control_robot.h
     include/${PROJECT_NAME}/access_control_settings.h
+    include/${PROJECT_NAME}/digital_resource_cam.h
+    include/${PROJECT_NAME}/digital_resource_plugin.h
 )
 
 qt5_wrap_ui(UI_SRC_FILES ${UI_FILES})
