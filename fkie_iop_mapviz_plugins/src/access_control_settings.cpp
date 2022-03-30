@@ -68,16 +68,21 @@ namespace fkie_iop_mapviz_plugins
       }
       if (node_ns_ == NULL) {
         printError("no system info received");
+        ROS_INFO("IOP access control: use namespace %s", namespace_.c_str());
         node_ns_ = new ros::NodeHandle(namespace_.c_str());
-        pub_cmd_ = node_ns_->advertise<fkie_iop_msgs::OcuCmd>(topic_command_, 1, true);
+        std::string fix_global = "";
+        if (namespace_.size() == 1 && namespace_[0] == '/') {
+          fix_global = "/";
+        }
+        pub_cmd_ = node_ns_->advertise<fkie_iop_msgs::OcuCmd>(fix_global + topic_command_, 1, true);
         ROS_INFO("IOP access control: advertising %s", pub_cmd_.getTopic().c_str());
-        sub_discovery_ = node_ns_->subscribe<fkie_iop_msgs::System>(topic_discovery_, 100, &AccessControlSettings::callbackIopSystem, this);
+        sub_discovery_ = node_ns_->subscribe<fkie_iop_msgs::System>(fix_global + topic_discovery_, 100, &AccessControlSettings::callbackIopSystem, this);
         ROS_INFO("IOP access control: subscribing to %s", sub_discovery_.getTopic().c_str());
-        sub_feedback_ = node_ns_->subscribe(topic_feedback_, 5, &AccessControlSettings::callbackIopFeedback, this);
+        sub_feedback_ = node_ns_->subscribe(fix_global + topic_feedback_, 5, &AccessControlSettings::callbackIopFeedback, this);
         ROS_INFO("IOP access control: subscribing to %s", sub_feedback_.getTopic().c_str());
-        sub_identification_ = node_ns_->subscribe<fkie_iop_msgs::Identification>(topic_identification_, 100, &AccessControlSettings::callbackIopIdent, this);
+        sub_identification_ = node_ns_->subscribe<fkie_iop_msgs::Identification>(fix_global + topic_identification_, 100, &AccessControlSettings::callbackIopIdent, this);
         ROS_INFO("IOP access control: subscribing to %s", sub_identification_.getTopic().c_str());
-        sub_control_report_ = node_ns_->subscribe<fkie_iop_msgs::OcuControlReport>(topic_control_report_, 100, &AccessControlSettings::callbackIopControlReport, this);
+        sub_control_report_ = node_ns_->subscribe<fkie_iop_msgs::OcuControlReport>(fix_global + topic_control_report_, 100, &AccessControlSettings::callbackIopControlReport, this);
         ROS_INFO("IOP access control: subscribing to %s", sub_control_report_.getTopic().c_str());
       }
   }
