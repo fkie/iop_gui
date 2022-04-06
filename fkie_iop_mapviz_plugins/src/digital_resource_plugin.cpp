@@ -406,6 +406,7 @@ namespace fkie_iop_mapviz_plugins
       }
       info_dialog_ = new QDialog(config_widget_);
       info_dialog_->setAttribute(Qt::WA_DeleteOnClose);
+      info_dialog_->setWindowFlags(Qt::Window	| Qt::WindowCloseButtonHint);
       info_dialog_->setMinimumWidth(150);
       QVBoxLayout* vlayout = new QVBoxLayout(info_dialog_);
       QLabel* info_label = new QLabel(QString::fromStdString(info_msg));

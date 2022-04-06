@@ -59,11 +59,13 @@ namespace fkie_iop_mapviz_plugins
     ui_system_info_.setupUi(detailed_dialog_);
     std::string header_str = robotname + "[" + std::to_string(getSubsystemID()) + "]";
     ui_system_info_.treewidget_components->setHeaderLabel(header_str.c_str());
+    detailed_dialog_->setWindowFlags(Qt::Window	| Qt::WindowCloseButtonHint);
     detailed_dialog_->resize(500, 300);
     std::string title_str = "subsystem " + robotname + "[" + std::to_string(getSubsystemID()) + "]";
     detailed_dialog_->setWindowTitle(title_str.c_str());
     detailed_dialog_->setWindowIcon(QIcon::fromTheme("help-about"));
     // setup warning info dialog
+    warning_dialog_->setWindowFlags(Qt::Window	| Qt::WindowCloseButtonHint);
     ui_warning_info_.setupUi(warning_dialog_);
     // setup buttons
     ui_robot_.button_control->setText(buttonname.c_str());
