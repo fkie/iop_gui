@@ -63,6 +63,7 @@ set(UI_FILES
     ui/access_control_system_info.ui
     ui/access_control_warning_info.ui
     ui/digital_resource_config.ui
+    ui/illuminator_config.ui
 )
 
 set(SRC_FILES
@@ -73,6 +74,8 @@ set(SRC_FILES
     src/access_control_settings.cpp
     src/digital_resource_cam.cpp
     src/digital_resource_plugin.cpp
+    src/illuminator_button.cpp
+    src/illuminator_plugin.cpp
 )
 
 set(HEADER_FILES
@@ -83,6 +86,8 @@ set(HEADER_FILES
     include/${PROJECT_NAME}/access_control_settings.h
     include/${PROJECT_NAME}/digital_resource_cam.h
     include/${PROJECT_NAME}/digital_resource_plugin.h
+    include/${PROJECT_NAME}/illuminator_button.h
+    include/${PROJECT_NAME}/illuminator_plugin.h
 )
 
 qt5_wrap_ui(UI_SRC_FILES ${UI_FILES})

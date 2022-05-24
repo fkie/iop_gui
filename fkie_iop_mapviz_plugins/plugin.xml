@@ -5,5 +5,8 @@
   <class name="fkie_iop_mapviz_plugins/iop_digital_resource" type="fkie_iop_mapviz_plugins::DigitalResourcePlugin" base_class_type="mapviz::MapvizPlugin">
     <description>Control digital resource on IOP compliant robot.</description>
   </class>
+  <class name="fkie_iop_mapviz_plugins/iop_illuminator" type="fkie_iop_mapviz_plugins::IlluminatorPlugin" base_class_type="mapviz::MapvizPlugin">
+    <description>Control a boolean State/Command topic.</description>
+  </class>
 </library>
 
