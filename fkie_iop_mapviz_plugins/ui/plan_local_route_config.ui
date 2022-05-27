@@ -32,15 +32,10 @@
    <property name="verticalSpacing">
     <number>4</number>
    </property>
-   <item row="3" column="2">
-    <widget class="QLineEdit" name="topic"/>
-   </item>
-   <item row="11" column="2" colspan="2">
+   <item row="13" column="2" colspan="2">
     <widget class="QLabel" name="status">
      <property name="font">
-      <font>
-       <pointsize>-1</pointsize>
-      </font>
+      <font/>
      </property>
      <property name="styleSheet">
       <string notr="true"/>
@@ -53,31 +48,7 @@
      </property>
     </widget>
    </item>
-   <item row="6" column="0">
-    <widget class="QLabel" name="label_3">
-     <property name="font">
-      <font>
-       <pointsize>-1</pointsize>
-      </font>
-     </property>
-     <property name="text">
-      <string>Preview Color:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="0">
-    <widget class="QLabel" name="label">
-     <property name="font">
-      <font>
-       <pointsize>-1</pointsize>
-      </font>
-     </property>
-     <property name="text">
-      <string>Plan Route Service:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="6" column="2">
+   <item row="8" column="2">
     <widget class="mapviz::ColorButton" name="color">
      <property name="maximumSize">
       <size>
@@ -96,64 +67,98 @@
      </property>
     </widget>
    </item>
-   <item row="2" column="2">
-    <widget class="QLineEdit" name="service">
-     <property name="font">
-      <font>
-       <pointsize>-1</pointsize>
-      </font>
-     </property>
-    </widget>
-   </item>
-   <item row="10" column="2">
-    <widget class="QPushButton" name="publish">
-     <property name="text">
-      <string>Publish Route</string>
-     </property>
-    </widget>
-   </item>
-   <item row="11" column="0">
-    <widget class="QLabel" name="label_2">
-     <property name="font">
-      <font>
-       <pointsize>-1</pointsize>
-      </font>
-     </property>
-     <property name="text">
-      <string>Status:</string>
-     </property>
-    </widget>
-   </item>
    <item row="3" column="0">
-    <widget class="QLabel" name="label_4">
+    <widget class="QLabel" name="label">
      <property name="font">
-      <font>
-       <pointsize>-1</pointsize>
-      </font>
+      <font/>
      </property>
      <property name="text">
-      <string>Route Topic:</string>
+      <string>Plan Route Service:</string>
      </property>
     </widget>
    </item>
-   <item row="5" column="2">
+   <item row="7" column="2">
     <widget class="QCheckBox" name="start_from_vehicle">
      <property name="text">
       <string/>
      </property>
     </widget>
    </item>
+   <item row="8" column="0">
+    <widget class="QLabel" name="label_3">
+     <property name="font">
+      <font/>
+     </property>
+     <property name="text">
+      <string>Preview Color:</string>
+     </property>
+    </widget>
+   </item>
    <item row="5" column="0">
+    <widget class="QLabel" name="label_4">
+     <property name="font">
+      <font/>
+     </property>
+     <property name="text">
+      <string>Route Topic:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="12" column="2">
+    <widget class="QPushButton" name="publish">
+     <property name="text">
+      <string>Publish Route</string>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="2">
+    <widget class="QPushButton" name="clear">
+     <property name="text">
+      <string>Clear</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="0">
     <widget class="QLabel" name="label_5">
      <property name="text">
       <string>Start From Vehicle:</string>
      </property>
     </widget>
    </item>
-   <item row="7" column="2">
-    <widget class="QPushButton" name="clear">
+   <item row="5" column="2">
+    <widget class="QLineEdit" name="topic"/>
+   </item>
+   <item row="3" column="2">
+    <widget class="QLineEdit" name="service">
+     <property name="font">
+      <font/>
+     </property>
+    </widget>
+   </item>
+   <item row="13" column="0">
+    <widget class="QLabel" name="label_2">
+     <property name="font">
+      <font/>
+     </property>
      <property name="text">
-      <string>Clear</string>
+      <string>Status:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="label_6">
+     <property name="font">
+      <font/>
+     </property>
+     <property name="text">
+      <string>Source Frame</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="2">
+    <widget class="QLineEdit" name="source_frame">
+     <property name="font">
+      <font/>
      </property>
     </widget>
    </item>

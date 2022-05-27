@@ -110,6 +110,7 @@ namespace fkie_iop_mapviz_plugins
     mapviz::MapCanvas* map_canvas_;
 
     std::string route_topic_;
+    std::string lr_source_frame_;
 
     ros::Publisher route_pub_;
     ros::Timer retry_timer_;

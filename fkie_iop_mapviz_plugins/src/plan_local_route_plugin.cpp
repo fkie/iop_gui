@@ -84,6 +84,8 @@ namespace fkie_iop_mapviz_plugins
     ui_.status->setPalette(p3);
     QObject::connect(ui_.service, SIGNAL(editingFinished()), this,
                      SLOT(PlanRoute()));
+    QObject::connect(ui_.source_frame, SIGNAL(editingFinished()), this,
+                     SLOT(PlanRoute()));
     QObject::connect(ui_.publish, SIGNAL(clicked()), this,
                      SLOT(PublishRoute()));
     QObject::connect(ui_.clear, SIGNAL(clicked()), this,
@@ -139,10 +141,11 @@ namespace fkie_iop_mapviz_plugins
     }
 
     std::string service = ui_.service->text().toStdString();
+    lr_source_frame_ = ui_.source_frame->text().toStdString();
     ros::ServiceClient client = node_.serviceClient<mnm::PlanRoute>(service);
 
     mnm::PlanRoute plan_route;
-    plan_route.request.header.frame_id = source_frame_;
+    plan_route.request.header.frame_id = lr_source_frame_;
     plan_route.request.header.stamp = ros::Time::now();
     plan_route.request.plan_from_vehicle = static_cast<unsigned char>(start_from_vehicle);
     plan_route.request.waypoints = waypoints_;
@@ -238,7 +241,7 @@ namespace fkie_iop_mapviz_plugins
     QPointF point = event->posF();
 #endif
     stu::Transform transform;
-    if (tf_manager_->GetTransform(target_frame_, source_frame_, transform))
+    if (tf_manager_->GetTransform(target_frame_, lr_source_frame_, transform))
     {
       for (size_t i = 0; i < waypoints_.size(); i++)
       {
@@ -302,7 +305,7 @@ namespace fkie_iop_mapviz_plugins
     if (selected_point_ >= 0 && static_cast<size_t>(selected_point_) < waypoints_.size())
     {
       stu::Transform transform;
-      if (tf_manager_->GetTransform(source_frame_, target_frame_, transform))
+      if (tf_manager_->GetTransform(lr_source_frame_, target_frame_, transform))
       {
         QPointF transformed = map_canvas_->MapGlCoordToFixedFrame(point);
         tf::Vector3 position(transformed.x(), transformed.y(), 0.0);
@@ -330,7 +333,7 @@ namespace fkie_iop_mapviz_plugins
 
         stu::Transform transform;
         tf::Vector3 position(transformed.x(), transformed.y(), 0.0);
-        if (tf_manager_->GetTransform(source_frame_, target_frame_, transform))
+        if (tf_manager_->GetTransform(lr_source_frame_, target_frame_, transform))
         {
           position = transform * position;
 
@@ -357,7 +360,7 @@ namespace fkie_iop_mapviz_plugins
       QPointF point = event->posF();
 #endif
       stu::Transform transform;
-      if (tf_manager_->GetTransform(source_frame_, target_frame_, transform))
+      if (tf_manager_->GetTransform(lr_source_frame_, target_frame_, transform))
       {
         QPointF transformed = map_canvas_->MapGlCoordToFixedFrame(point);
         tf::Vector3 position(transformed.x(), transformed.y(), 0.0);
@@ -375,7 +378,7 @@ namespace fkie_iop_mapviz_plugins
   void PlanLocalRoutePlugin::Draw(double x, double y, double scale)
   {
     stu::Transform transform;
-    if (tf_manager_->GetTransform(target_frame_, source_frame_, transform))
+    if (tf_manager_->GetTransform(target_frame_, lr_source_frame_, transform))
     {
       if (!failed_service_)
       {
@@ -430,7 +433,7 @@ namespace fkie_iop_mapviz_plugins
     painter->setFont(QFont("DejaVu Sans Mono", 7));
 
     stu::Transform transform;
-    if (tf_manager_->GetTransform(target_frame_, source_frame_, transform))
+    if (tf_manager_->GetTransform(target_frame_, lr_source_frame_, transform))
     {
       for (size_t i = 0; i < waypoints_.size(); i++)
       {
@@ -472,6 +475,13 @@ namespace fkie_iop_mapviz_plugins
       node["start_from_vehicle"] >> start_from_vehicle;
       ui_.start_from_vehicle->setChecked(start_from_vehicle);
     }
+    if (node["source_frame"])
+    {
+      std::string source_frame;
+      node["source_frame"] >> source_frame;
+      lr_source_frame_ = source_frame;
+      ui_.source_frame->setText(source_frame.c_str());
+    }
 
     PlanRoute();
   }
@@ -489,5 +499,9 @@ namespace fkie_iop_mapviz_plugins
 
     bool start_from_vehicle = ui_.start_from_vehicle->isChecked();
     emitter << YAML::Key << "start_from_vehicle" << YAML::Value << start_from_vehicle;
+
+    std::string source_frame = ui_.source_frame->text().toStdString();
+    emitter << YAML::Key << "source_frame" << YAML::Value << source_frame;
+
   }
 }
