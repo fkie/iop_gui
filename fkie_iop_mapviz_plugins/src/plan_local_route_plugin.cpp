@@ -241,7 +241,7 @@ namespace fkie_iop_mapviz_plugins
     QPointF point = event->posF();
 #endif
     stu::Transform transform;
-    if (tf_manager_->GetTransform(target_frame_, lr_source_frame_, transform))
+    if (GetTransform(ros::Time(), transform))
     {
       for (size_t i = 0; i < waypoints_.size(); i++)
       {
@@ -251,7 +251,7 @@ namespace fkie_iop_mapviz_plugins
             0.0);
         waypoint = transform * waypoint;
 
-        QPointF transformed = map_canvas_->FixedFrameToMapGlCoord(QPointF(waypoint.x(), waypoint.y()));
+        QPointF transformed = QPointF(waypoint.x(), waypoint.y());
 
         double distance = QLineF(transformed, point).length();
 
@@ -305,10 +305,9 @@ namespace fkie_iop_mapviz_plugins
     if (selected_point_ >= 0 && static_cast<size_t>(selected_point_) < waypoints_.size())
     {
       stu::Transform transform;
-      if (tf_manager_->GetTransform(lr_source_frame_, target_frame_, transform))
+      if (GetTransform(ros::Time(), transform))
       {
-        QPointF transformed = map_canvas_->MapGlCoordToFixedFrame(point);
-        tf::Vector3 position(transformed.x(), transformed.y(), 0.0);
+        tf::Vector3 position(point.x(), point.y(), 0.0);
         position = transform * position;
         waypoints_[selected_point_].position.x = position.x();
         waypoints_[selected_point_].position.y = position.y();
@@ -333,7 +332,7 @@ namespace fkie_iop_mapviz_plugins
 
         stu::Transform transform;
         tf::Vector3 position(transformed.x(), transformed.y(), 0.0);
-        if (tf_manager_->GetTransform(lr_source_frame_, target_frame_, transform))
+        if (GetTransform(ros::Time(), transform))
         {
           position = transform * position;
 
@@ -360,10 +359,9 @@ namespace fkie_iop_mapviz_plugins
       QPointF point = event->posF();
 #endif
       stu::Transform transform;
-      if (tf_manager_->GetTransform(lr_source_frame_, target_frame_, transform))
+      if (GetTransform(ros::Time(), transform))
       {
-        QPointF transformed = map_canvas_->MapGlCoordToFixedFrame(point);
-        tf::Vector3 position(transformed.x(), transformed.y(), 0.0);
+        tf::Vector3 position(point.x(), point.y(), 0.0);
         position = transform * position;
         waypoints_[selected_point_].position.y = position.y();
         waypoints_[selected_point_].position.x = position.x();
@@ -378,7 +376,7 @@ namespace fkie_iop_mapviz_plugins
   void PlanLocalRoutePlugin::Draw(double x, double y, double scale)
   {
     stu::Transform transform;
-    if (tf_manager_->GetTransform(target_frame_, lr_source_frame_, transform))
+    if (GetTransform(ros::Time(), transform))
     {
       if (!failed_service_)
       {
@@ -433,13 +431,13 @@ namespace fkie_iop_mapviz_plugins
     painter->setFont(QFont("DejaVu Sans Mono", 7));
 
     stu::Transform transform;
-    if (tf_manager_->GetTransform(target_frame_, lr_source_frame_, transform))
+    if (GetTransform(ros::Time(), transform))
     {
       for (size_t i = 0; i < waypoints_.size(); i++)
       {
         tf::Vector3 point(waypoints_[i].position.x, waypoints_[i].position.y, 0);
         point = transform * point;
-        QPointF gl_point = map_canvas_->FixedFrameToMapGlCoord(QPointF(point.x(), point.y()));
+        QPointF gl_point = QPointF(point.x(), point.y());
         QPointF corner(gl_point.x() - 20, gl_point.y() - 20);
         QRectF rect(corner, QSizeF(40, 40));
         painter->drawText(rect, Qt::AlignHCenter | Qt::AlignVCenter, QString::fromStdString(boost::lexical_cast<std::string>(i + 1)));
