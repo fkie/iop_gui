@@ -6,7 +6,8 @@ set(DEPENDENCIES
   jaustoolset
   mapviz
   pluginlib 
-  roscpp 
+  roscpp
+  swri_route_util
 )
 
 find_package(catkin REQUIRED COMPONENTS ${DEPENDENCIES})
@@ -64,6 +65,7 @@ set(UI_FILES
     ui/access_control_warning_info.ui
     ui/digital_resource_config.ui
     ui/illuminator_config.ui
+    ui/plan_local_route_config.ui
 )
 
 set(SRC_FILES
@@ -76,6 +78,7 @@ set(SRC_FILES
     src/digital_resource_plugin.cpp
     src/illuminator_button.cpp
     src/illuminator_plugin.cpp
+    src/plan_local_route_plugin.cpp
 )
 
 set(HEADER_FILES
@@ -88,6 +91,7 @@ set(HEADER_FILES
     include/${PROJECT_NAME}/digital_resource_plugin.h
     include/${PROJECT_NAME}/illuminator_button.h
     include/${PROJECT_NAME}/illuminator_plugin.h
+    include/${PROJECT_NAME}/plan_local_route_plugin.h
 )
 
 qt5_wrap_ui(UI_SRC_FILES ${UI_FILES})

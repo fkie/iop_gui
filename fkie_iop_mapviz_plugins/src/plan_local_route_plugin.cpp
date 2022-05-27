@@ -27,7 +27,7 @@
 //
 // *****************************************************************************
 
-#include <mapviz_plugins/plan_local_route_plugin.h>
+#include <fkie_iop_mapviz_plugins/plan_local_route_plugin.h>
 
 // C++ standard libraries
 #include <cstdio>
@@ -54,13 +54,13 @@
 
 // Declare plugin
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mapviz_plugins::PlanLocalRoutePlugin, mapviz::MapvizPlugin)
+PLUGINLIB_EXPORT_CLASS(fkie_iop_mapviz_plugins::PlanLocalRoutePlugin, mapviz::MapvizPlugin)
 
 namespace mnm = marti_nav_msgs;
 namespace sru = swri_route_util;
 namespace stu = swri_transform_util;
 
-namespace mapviz_plugins
+namespace fkie_iop_mapviz_plugins
 {
   PlanLocalRoutePlugin::PlanLocalRoutePlugin() :
     config_widget_(new QWidget()),

@@ -25,6 +25,7 @@
   <depend>mapviz</depend>
   <depend>pluginlib</depend>
   <depend>roscpp</depend>
+  <depend>swri_route_util</depend>
 
   <export>
     <mapviz plugin="${prefix}/plugin.xml" />

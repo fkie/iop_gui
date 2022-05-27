@@ -8,8 +8,8 @@
   <class name="fkie_iop_mapviz_plugins/iop_illuminator" type="fkie_iop_mapviz_plugins::IlluminatorPlugin" base_class_type="mapviz::MapvizPlugin">
     <description>Control a boolean State/Command topic.</description>
   </class>
-  <class name="fkie_iop_mapviz_plugins/plan_route" type="fkie_iop_mapviz_plugins::PlanLocalRoutePlugin" base_class_type="mapviz::MapvizPlugin">
-    <description>Plan route mapviz plugin.</description>
+  <class name="fkie_iop_mapviz_plugins/plan_local_route" type="fkie_iop_mapviz_plugins::PlanLocalRoutePlugin" base_class_type="mapviz::MapvizPlugin">
+    <description>Plan local route mapviz plugin.</description>
   </class>
 </library>
 
