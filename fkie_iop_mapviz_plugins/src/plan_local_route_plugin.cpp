@@ -135,7 +135,7 @@ namespace fkie_iop_mapviz_plugins
   {
     route_preview_ = sru::RoutePtr();
     bool start_from_vehicle = ui_.start_from_vehicle->isChecked();
-    if (waypoints_.size() + start_from_vehicle < 2 || !Visible())
+    if (waypoints_.size() < 1 || !Visible())
     {
       return;
     }
