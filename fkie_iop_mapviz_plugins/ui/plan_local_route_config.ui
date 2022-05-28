@@ -151,7 +151,7 @@
       <font/>
      </property>
      <property name="text">
-      <string>Source Frame</string>
+      <string>Fixed Frame</string>
      </property>
     </widget>
    </item>
