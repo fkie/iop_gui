@@ -437,7 +437,7 @@ namespace fkie_iop_mapviz_plugins
       {
         tf::Vector3 point(waypoints_[i].position.x, waypoints_[i].position.y, 0);
         point = transform * point;
-        QPointF gl_point = QPointF(point.x(), point.y());
+        QPointF gl_point = map_canvas_->FixedFrameToMapGlCoord(QPointF(point.x(), point.y()));
         QPointF corner(gl_point.x() - 20, gl_point.y() - 20);
         QRectF rect(corner, QSizeF(40, 40));
         painter->drawText(rect, Qt::AlignHCenter | Qt::AlignVCenter, QString::fromStdString(boost::lexical_cast<std::string>(i + 1)));
